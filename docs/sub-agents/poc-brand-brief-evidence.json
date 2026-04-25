@@ -1,0 +1,60 @@
+{
+  "slice": "poc-brand-brief",
+  "runAt": "2026-04-25T07:41:39.783Z",
+  "verdict": "PASS",
+  "blocker": null,
+  "model": "openai/gpt-5.4-mini",
+  "builderInputs": {
+    "brandUrl": "https://metis-ai-nine.vercel.app",
+    "objective": "LEADS",
+    "supportLevel": "full-campaign",
+    "userNotes": ""
+  },
+  "brandBrief": {
+    "positioning": "Metis AI positions itself as an early-access Meta Ads workflow agent for media buyers, performance marketers, and small agency teams that need faster campaign planning, creative direction, and reporting handoffs without rebuilding the same process every week. The core value proposition is turning brand context and campaign goals into a structured first draft for strategy, messaging, and reporting.",
+    "audience": [],
+    "offer": "Current offer is a waitlist for early access to Metis AI, with release updates and the first onboarding invite. The lead objective is supported by a clear low-friction CTA: join the waitlist with a work email. The site frames the offer as early access to a product still in development rather than a fully launched service.",
+    "productsOrServices": [
+      "Campaign Builder: turns business context and campaign goals into a stronger campaign starting point, including strategy outline, messaging, and reporting framing.",
+      "Campaign planning support: produces a structured strategic draft to reduce blank-page planning.",
+      "Creative direction support: drafts messaging aligned to the campaign objective and company positioning/tone.",
+      "Reporting summarization: turns campaign history and reporting inputs into summaries that are easier to review and share.",
+      "Operator-to-stakeholder handoff support: writes updates in a reusable tone and reduces manual synthesis across docs, decks, chat threads, and spreadsheets."
+    ],
+    "tone": [],
+    "differentiators": [
+      "Built specifically around Meta Ads workflows rather than generic marketing automation.",
+      "Anchors output in company context, positioning, tone, and objective before drafting.",
+      "Combines strategy, creative direction, and reporting in one system instead of separate tools or processes.",
+      "Designed to reduce operational drag for lean performance teams.",
+      "Explicitly targets campaign creation and campaign review, which the site identifies as the two most time-consuming workflows.",
+      "Focuses on structured first drafts that teams can refine, rather than replacing human review."
+    ],
+    "claims": [
+      "Based on the site copy, Metis AI helps media buying teams turn brand context into sharper campaign plans, stronger creative direction, and clearer reporting.",
+      "The product is designed around campaign creation and campaign review.",
+      "It can produce strategy, messaging, and reporting structure from the same context.",
+      "It is intended to reduce blank-page planning before campaigns launch or reports go out.",
+      "It can help create updates that are easier to review internally or share outward.",
+      "These are positioning claims from the website copy; no performance proof, benchmarks, customer results, or integrations were provided."
+    ],
+    "missingInputs": [
+      "Proof points or case studies showing measurable impact on speed, quality, or performance.",
+      "Whether the product is currently live, in beta, or only waitlist access.",
+      "Pricing, plan structure, or whether the offer is free during early access.",
+      "Any concrete feature list beyond the campaign builder and reporting support described on the page.",
+      "Integration details, especially with Meta Ads, reporting tools, or customer data sources.",
+      "Differentiation against alternative AI ad tools, agencies, or internal workflows.",
+      "Brand voice guidelines, visual identity, and approved messaging hierarchy.",
+      "Geography, vertical focus, or company size focus beyond media buyers, performance marketers, and small agencies.",
+      "Conversion goal specifics for the lead campaign, such as email capture only or nurture into demo/onboarding."
+    ],
+    "risks": [
+      "The one-page crawl provides limited evidence, so campaign messaging should avoid overclaiming product maturity or breadth.",
+      "The current offer is waitlist-based, which may create friction for lead generation unless the value of early access is made concrete.",
+      "The product category may sound generic without proof of unique capability or differentiated workflow depth.",
+      "Claims about output quality, speed, or reporting usefulness are not yet substantiated by external evidence.",
+      "The audience is somewhat broad; lead quality may suffer if campaigns do not narrow to a clearer segment such as agency operators, in-house media buyers, or growth teams at Meta-heavy brands."
+    ]
+  }
+}

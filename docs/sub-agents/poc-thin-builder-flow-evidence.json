@@ -1,0 +1,273 @@
+{
+  "slice": "poc-thin-builder-flow",
+  "runAt": "2026-04-25T09:47:49.189Z",
+  "verdict": "PASS",
+  "blocker": null,
+  "runId": "thin-builder-a13af98f-102d-4acb-83e0-feeea7672d25",
+  "completedSteps": [
+    "brand-research",
+    "brand-brief",
+    "builder-output",
+    "draft-validation",
+    "draft-write",
+    "observability"
+  ],
+  "builderOutput": {
+    "campaignPlan": {
+      "summary": "Metis AI should be positioned as an early-access workflow assistant for media buyers and lean agency teams who want a better first draft for Meta Ads work, not a generic AI tool. The campaign should convert curiosity into waitlist signups by showing that the product reduces blank-page time across campaign planning, creative direction, and reporting handoffs while staying honest that access is still early and invite-based.",
+      "primaryGoal": "Generate qualified waitlist leads from work-email signups among Meta-focused operators, with an emphasis on media buyers, performance marketers, and small agency teams.",
+      "offerStrategy": "Lead with early access and a concrete operational benefit: join the waitlist to receive first onboarding access, product updates, and a structured workflow that helps teams draft campaigns faster. The offer should stay low-friction and make the reward tangible by emphasizing that the value is not just product news, but priority access to a tool built around campaign creation and campaign review workflows.",
+      "funnelStages": [
+        {
+          "stage": "TOF",
+          "angle": "Reduce blank-page pressure for Meta Ads planning",
+          "audienceSegment": "Media buyers, performance marketers, and agency operators who frequently start campaigns from scratch",
+          "messagePillars": [
+            "Metis AI turns brand context and goals into a structured first draft",
+            "The product is built specifically for Meta Ads workflows",
+            "Early access is the simplest way to try a faster planning process"
+          ],
+          "creativeDirections": [
+            "Problem-first static creative showing a messy campaign planning workflow versus a structured draft",
+            "Short copy focused on time saved in campaign setup and planning",
+            "Simple product-style mockup emphasizing strategy outline, messaging, and reporting framing"
+          ]
+        },
+        {
+          "stage": "MOF",
+          "angle": "One workflow for strategy, creative direction, and reporting",
+          "audienceSegment": "Lean teams that need a reusable process across launch prep and post-launch reporting",
+          "messagePillars": [
+            "One system for campaign planning, creative direction, and reporting summaries",
+            "Designed to reduce repetitive handoff work across docs, decks, chat threads, and spreadsheets",
+            "Draft outputs are meant to be reviewed and refined by humans, not replace them"
+          ],
+          "creativeDirections": [
+            "Carousel or stacked statics that map the workflow from brief to draft to handoff",
+            "Copy that frames Metis AI as an operator assistant rather than an automation promise",
+            "Visual hierarchy that highlights the three use cases: planning, messaging, reporting"
+          ]
+        },
+        {
+          "stage": "BOF",
+          "angle": "Join early access to get the first invite and shape the workflow",
+          "audienceSegment": "High-intent visitors who have visited the site, engaged with the product framing, or returned after seeing TOF/MOF ads",
+          "messagePillars": [
+            "Waitlist access is the path to first onboarding",
+            "Early access is positioned as a practical advantage for teams that want faster workflows now",
+            "No inflated claims; focus on being first in line for a Meta Ads-specific workflow agent"
+          ],
+          "creativeDirections": [
+            "Direct-response conversion creative with a clear waitlist CTA",
+            "Trust-building copy that emphasizes specificity and early access rather than hype",
+            "Minimalist layout with a strong CTA and short benefit stack"
+          ]
+        }
+      ],
+      "measurementPlan": [
+        {
+          "metric": "primaryConversion",
+          "reason": "Work-email waitlist signup"
+        },
+        {
+          "metric": "secondaryConversion",
+          "reason": "Landing page view to signup start"
+        },
+        {
+          "metric": "secondaryConversion",
+          "reason": "Signup form completion rate"
+        },
+        {
+          "metric": "secondaryConversion",
+          "reason": "Click-through rate on TOF/MOF creatives"
+        },
+        {
+          "metric": "secondaryConversion",
+          "reason": "Cost per lead by audience segment"
+        },
+        {
+          "metric": "secondaryConversion",
+          "reason": "Return visitor conversion rate"
+        }
+      ]
+    },
+    "copyPack": {
+      "tof": [
+        {
+          "angle": "Blank-page relief for Meta Ads planning",
+          "primaryText": "Starting a new campaign should not mean rebuilding the same strategy from scratch. Metis AI turns your brand context and campaign goal into a structured first draft for Meta Ads planning, so your team starts with something usable instead of a blank page. Join the waitlist for early access.",
+          "headline": "Start with a better campaign draft",
+          "description": "Early access for Meta Ads teams that want faster planning.",
+          "cta": "Join Waitlist"
+        },
+        {
+          "angle": "Built for Meta Ads workflows, not generic AI",
+          "primaryText": "Most AI tools are built to write content. Metis AI is built to help media buyers and performance teams draft Meta Ads strategy, creative direction, and reporting structure in one place. If your workflow lives in briefs, decks, and post-launch updates, this is for you.",
+          "headline": "AI for Meta Ads workflow drafting",
+          "description": "Get early access to the workflow agent built for ad teams.",
+          "cta": "Join Waitlist"
+        }
+      ],
+      "mof": [
+        {
+          "angle": "One workflow for planning, creative, and reporting",
+          "primaryText": "Campaign planning, creative direction, and reporting handoffs all take time because teams keep rebuilding the same context. Metis AI helps turn that context into a structured first draft, so your next launch and your next recap both start faster. Join the waitlist to get first access.",
+          "headline": "Draft faster across the full workflow",
+          "description": "From campaign brief to reporting summary, all in one early-access tool.",
+          "cta": "Join Waitlist"
+        },
+        {
+          "angle": "Designed for lean teams that need reusable output",
+          "primaryText": "If your team is small, every handoff matters. Metis AI helps translate business context into campaign strategy, messaging direction, and cleaner reporting summaries that are easier to review and share. Get on the waitlist for early access and first onboarding invite.",
+          "headline": "Make ad ops less repetitive",
+          "description": "Built to reduce repetitive planning and reporting work for lean teams.",
+          "cta": "Join Waitlist"
+        }
+      ],
+      "bof": [
+        {
+          "angle": "First access for serious Meta Ads operators",
+          "primaryText": "Metis AI is opening early access for teams that want a better starting point for Meta Ads work. Join the waitlist with your work email to be first in line for onboarding updates and access invites.",
+          "headline": "Get early access first",
+          "description": "Join the waitlist for the first Metis AI onboarding invite.",
+          "cta": "Join Waitlist"
+        },
+        {
+          "angle": "Priority access to the waitlist",
+          "primaryText": "If you spend too much time turning briefs into campaign drafts and updates, Metis AI is being built for that workflow. Sign up now to reserve your spot for early access and release updates.",
+          "headline": "Reserve your spot",
+          "description": "Early access for media buyers, performance marketers, and agencies.",
+          "cta": "Join Waitlist"
+        }
+      ]
+    },
+    "draftLaunchSpec": {
+      "requestedStatus": "PAUSED",
+      "namingPrefix": "[AIW-DRAFT] Metis AI",
+      "campaignDraft": {
+        "name": "[AIW-DRAFT] Metis AI | Lead Gen | Waitlist Early Access | Meta Ads Workflow",
+        "objective": "LEADS",
+        "status": "PAUSED",
+        "buyingType": "AUCTION",
+        "optimizationGoal": "LEAD_GENERATION",
+        "destination": "LEAD_FORM",
+        "message": "Paused draft for early-access waitlist capture focused on Meta Ads workflow assistance."
+      },
+      "adSetDrafts": [
+        {
+          "name": "[AIW-DRAFT] Metis AI | Ad Set | TOF | Meta Ads Operators",
+          "status": "PAUSED",
+          "targetingSummary": "Broad or interest-led audience of media buyers, performance marketers, and small agency operators interested in Meta Ads, paid social, and performance marketing workflows.",
+          "conversionLocation": "LEAD_FORM",
+          "billingEvent": "IMPRESSIONS",
+          "optimizationGoal": "LEAD_GENERATION",
+          "placements": "ADVANTAGE_PLUS_PLACEMENTS",
+          "missingAssets": [
+            "metaPage",
+            "instagramAccount",
+            "pixel"
+          ],
+          "audienceNotes": "Use broad professional targeting if platform constraints or asset gaps limit custom audiences."
+        },
+        {
+          "name": "[AIW-DRAFT] Metis AI | Ad Set | MOF | Site Engagers",
+          "status": "PAUSED",
+          "targetingSummary": "Retargeting audience of site visitors and engaged users if pixel or engagement data becomes available; otherwise use high-intent manual retargeting sources once configured.",
+          "conversionLocation": "LEAD_FORM",
+          "billingEvent": "IMPRESSIONS",
+          "optimizationGoal": "LEAD_GENERATION",
+          "placements": "ADVANTAGE_PLUS_PLACEMENTS",
+          "missingAssets": [
+            "pixel"
+          ],
+          "audienceNotes": "Keep this ad set paused until retargeting signals are available or confirmed."
+        },
+        {
+          "name": "[AIW-DRAFT] Metis AI | Ad Set | BOF | Waitlist Converters",
+          "status": "PAUSED",
+          "targetingSummary": "High-intent warm audience for users who clicked, returned, or started the signup flow; if unavailable, keep as a draft until qualifying audiences are confirmed.",
+          "conversionLocation": "LEAD_FORM",
+          "billingEvent": "IMPRESSIONS",
+          "optimizationGoal": "LEAD_GENERATION",
+          "placements": "ADVANTAGE_PLUS_PLACEMENTS",
+          "missingAssets": [
+            "pixel"
+          ],
+          "audienceNotes": "Designed for conversion-focused retargeting, but should remain paused until tracking is confirmed."
+        }
+      ],
+      "creativeDrafts": [
+        {
+          "name": "[AIW-DRAFT] Metis AI | Creative | TOF | Blank Page Relief",
+          "format": "Single Image",
+          "primaryMessage": "Reduce blank-page pressure for Meta Ads planning with a structured first draft.",
+          "visualDirection": "Clean workflow graphic contrasting empty brief to structured campaign outline.",
+          "missingAssets": [
+            "metaPage",
+            "instagramAccount"
+          ],
+          "status": "PAUSED"
+        },
+        {
+          "name": "[AIW-DRAFT] Metis AI | Creative | MOF | Full Workflow Support",
+          "format": "Carousel",
+          "primaryMessage": "One early-access workflow for planning, creative direction, and reporting handoffs.",
+          "visualDirection": "Three-panel layout showing campaign plan, message draft, and report summary.",
+          "missingAssets": [
+            "metaPage",
+            "instagramAccount"
+          ],
+          "status": "PAUSED"
+        },
+        {
+          "name": "[AIW-DRAFT] Metis AI | Creative | BOF | Early Access Invite",
+          "format": "Single Image",
+          "primaryMessage": "Join the waitlist for first access to a Meta Ads-specific workflow agent.",
+          "visualDirection": "Minimalist waitlist invite card with strong CTA and early-access framing.",
+          "missingAssets": [
+            "metaPage",
+            "instagramAccount"
+          ],
+          "status": "PAUSED"
+        }
+      ],
+      "adDrafts": [
+        {
+          "name": "[AIW-DRAFT] Metis AI | Ad | TOF | Blank Page Relief",
+          "status": "PAUSED",
+          "creativeRef": "[AIW-DRAFT] Metis AI | Creative | TOF | Blank Page Relief",
+          "adSetRef": "[AIW-DRAFT] Metis AI | Ad Set | TOF | Meta Ads Operators",
+          "primaryText": "Starting a new campaign should not mean rebuilding the same strategy from scratch. Metis AI turns your brand context and campaign goal into a structured first draft for Meta Ads planning, so your team starts with something usable instead of a blank page. Join the waitlist for early access.",
+          "headline": "Start with a better campaign draft",
+          "description": "Early access for Meta Ads teams that want faster planning.",
+          "cta": "JOIN_WAITLIST"
+        },
+        {
+          "name": "[AIW-DRAFT] Metis AI | Ad | MOF | Full Workflow Support",
+          "status": "PAUSED",
+          "creativeRef": "[AIW-DRAFT] Metis AI | Creative | MOF | Full Workflow Support",
+          "adSetRef": "[AIW-DRAFT] Metis AI | Ad Set | MOF | Site Engagers",
+          "primaryText": "Campaign planning, creative direction, and reporting handoffs all take time because teams keep rebuilding the same context. Metis AI helps turn that context into a structured first draft, so your next launch and your next recap both start faster. Join the waitlist to get first access.",
+          "headline": "Draft faster across the full workflow",
+          "description": "From campaign brief to reporting summary, all in one early-access tool.",
+          "cta": "JOIN_WAITLIST"
+        },
+        {
+          "name": "[AIW-DRAFT] Metis AI | Ad | BOF | Early Access Invite",
+          "status": "PAUSED",
+          "creativeRef": "[AIW-DRAFT] Metis AI | Creative | BOF | Early Access Invite",
+          "adSetRef": "[AIW-DRAFT] Metis AI | Ad Set | BOF | Waitlist Converters",
+          "primaryText": "Metis AI is opening early access for teams that want a better starting point for Meta Ads work. Join the waitlist with your work email to be first in line for onboarding updates and access invites.",
+          "headline": "Get early access first",
+          "description": "Join the waitlist for the first Metis AI onboarding invite.",
+          "cta": "JOIN_WAITLIST"
+        }
+      ],
+      "missingAssets": [
+        "metaPage",
+        "instagramAccount",
+        "pixel"
+      ]
+    }
+  }
+}

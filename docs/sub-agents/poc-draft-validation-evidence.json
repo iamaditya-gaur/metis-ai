@@ -1,0 +1,135 @@
+{
+  "slice": "poc-draft-validation",
+  "runAt": "2026-04-25T09:47:37.116Z",
+  "verdict": "PASS",
+  "blocker": null,
+  "validatedDrafts": {
+    "requestedStatus": "PAUSED",
+    "namingPrefix": "[AIW-DRAFT] Metis AI",
+    "campaignPayload": {
+      "name": "[AIW-DRAFT] Metis AI | Lead Gen | Waitlist Early Access | Meta Ads Workflow",
+      "objective": "OUTCOME_LEADS",
+      "status": "PAUSED",
+      "special_ad_categories": [],
+      "is_adset_budget_sharing_enabled": "false"
+    },
+    "adSetPayloads": [
+      {
+        "name": "[AIW-DRAFT] Metis AI | Ad Set | TOF | Meta Ads Operators",
+        "status": "PAUSED",
+        "targetingSummary": "Broad or interest-led audience of media buyers, performance marketers, and small agency operators interested in Meta Ads, paid social, and performance marketing workflows.",
+        "optimizationGoal": "LEAD_GENERATION",
+        "conversionLocation": "LEAD_FORM",
+        "billingEvent": "IMPRESSIONS",
+        "placements": "ADVANTAGE_PLUS_PLACEMENTS",
+        "missingAssets": [
+          "metaPage",
+          "instagramAccount",
+          "pixel"
+        ]
+      },
+      {
+        "name": "[AIW-DRAFT] Metis AI | Ad Set | MOF | Site Engagers",
+        "status": "PAUSED",
+        "targetingSummary": "Retargeting audience of site visitors and engaged users if pixel or engagement data becomes available; otherwise use high-intent manual retargeting sources once configured.",
+        "optimizationGoal": "LEAD_GENERATION",
+        "conversionLocation": "LEAD_FORM",
+        "billingEvent": "IMPRESSIONS",
+        "placements": "ADVANTAGE_PLUS_PLACEMENTS",
+        "missingAssets": [
+          "pixel"
+        ]
+      },
+      {
+        "name": "[AIW-DRAFT] Metis AI | Ad Set | BOF | Waitlist Converters",
+        "status": "PAUSED",
+        "targetingSummary": "High-intent warm audience for users who clicked, returned, or started the signup flow; if unavailable, keep as a draft until qualifying audiences are confirmed.",
+        "optimizationGoal": "LEAD_GENERATION",
+        "conversionLocation": "LEAD_FORM",
+        "billingEvent": "IMPRESSIONS",
+        "placements": "ADVANTAGE_PLUS_PLACEMENTS",
+        "missingAssets": [
+          "pixel"
+        ]
+      }
+    ],
+    "creativePayloads": [
+      {
+        "name": "[AIW-DRAFT] Metis AI | Creative | TOF | Blank Page Relief",
+        "format": "Single Image",
+        "primaryText": "Reduce blank-page pressure for Meta Ads planning with a structured first draft.",
+        "headline": "",
+        "description": "",
+        "cta": "",
+        "visualDirection": "Clean workflow graphic contrasting empty brief to structured campaign outline.",
+        "missingAssets": [
+          "metaPage",
+          "instagramAccount"
+        ]
+      },
+      {
+        "name": "[AIW-DRAFT] Metis AI | Creative | MOF | Full Workflow Support",
+        "format": "Carousel",
+        "primaryText": "One early-access workflow for planning, creative direction, and reporting handoffs.",
+        "headline": "",
+        "description": "",
+        "cta": "",
+        "visualDirection": "Three-panel layout showing campaign plan, message draft, and report summary.",
+        "missingAssets": [
+          "metaPage",
+          "instagramAccount"
+        ]
+      },
+      {
+        "name": "[AIW-DRAFT] Metis AI | Creative | BOF | Early Access Invite",
+        "format": "Single Image",
+        "primaryText": "Join the waitlist for first access to a Meta Ads-specific workflow agent.",
+        "headline": "",
+        "description": "",
+        "cta": "",
+        "visualDirection": "Minimalist waitlist invite card with strong CTA and early-access framing.",
+        "missingAssets": [
+          "metaPage",
+          "instagramAccount"
+        ]
+      }
+    ],
+    "adPayloads": [
+      {
+        "name": "[AIW-DRAFT] Metis AI | Ad | TOF | Blank Page Relief",
+        "status": "PAUSED",
+        "creativeRef": "[AIW-DRAFT] Metis AI | Creative | TOF | Blank Page Relief",
+        "adSetRef": "[AIW-DRAFT] Metis AI | Ad Set | TOF | Meta Ads Operators",
+        "primaryText": "Starting a new campaign should not mean rebuilding the same strategy from scratch. Metis AI turns your brand context and campaign goal into a structured first draft for Meta Ads planning, so your team starts with something usable instead of a blank page. Join the waitlist for early access.",
+        "headline": "Start with a better campaign draft",
+        "description": "Early access for Meta Ads teams that want faster planning.",
+        "cta": "JOIN_WAITLIST"
+      },
+      {
+        "name": "[AIW-DRAFT] Metis AI | Ad | MOF | Full Workflow Support",
+        "status": "PAUSED",
+        "creativeRef": "[AIW-DRAFT] Metis AI | Creative | MOF | Full Workflow Support",
+        "adSetRef": "[AIW-DRAFT] Metis AI | Ad Set | MOF | Site Engagers",
+        "primaryText": "Campaign planning, creative direction, and reporting handoffs all take time because teams keep rebuilding the same context. Metis AI helps turn that context into a structured first draft, so your next launch and your next recap both start faster. Join the waitlist to get first access.",
+        "headline": "Draft faster across the full workflow",
+        "description": "From campaign brief to reporting summary, all in one early-access tool.",
+        "cta": "JOIN_WAITLIST"
+      },
+      {
+        "name": "[AIW-DRAFT] Metis AI | Ad | BOF | Early Access Invite",
+        "status": "PAUSED",
+        "creativeRef": "[AIW-DRAFT] Metis AI | Creative | BOF | Early Access Invite",
+        "adSetRef": "[AIW-DRAFT] Metis AI | Ad Set | BOF | Waitlist Converters",
+        "primaryText": "Metis AI is opening early access for teams that want a better starting point for Meta Ads work. Join the waitlist with your work email to be first in line for onboarding updates and access invites.",
+        "headline": "Get early access first",
+        "description": "Join the waitlist for the first Metis AI onboarding invite.",
+        "cta": "JOIN_WAITLIST"
+      }
+    ],
+    "missingAssets": [
+      "metaPage",
+      "instagramAccount",
+      "pixel"
+    ]
+  }
+}

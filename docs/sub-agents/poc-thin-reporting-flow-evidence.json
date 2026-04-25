@@ -1,0 +1,34 @@
+{
+  "slice": "poc-thin-reporting-flow",
+  "runAt": "2026-04-25T08:38:26.522Z",
+  "verdict": "PASS",
+  "blocker": null,
+  "runId": "thin-reporting-583cbf4a-e00d-4cbd-b42c-232595e56421",
+  "completedSteps": [
+    "meta-reporting",
+    "report-summary",
+    "slack-delivery",
+    "observability"
+  ],
+  "reportSummary": {
+    "executiveSummary": "For 2026-04-18 to 2026-04-24, the account spent 4,243.77 and generated 320,745 impressions, 76,334 reach, 7,695 clicks, a 2.4% CTR, $0.55 CPC, and 4.2 frequency. Overall delivery shows solid click volume with moderate cost efficiency, while performance varies meaningfully across campaigns.",
+    "whatChanged": [
+      "Top actions were page_engagement (24,068), post_engagement (24,060), video_view (16,347), link_click (7,405), and landing_page_view (5,617).",
+      "Among the top campaigns, CTR ranged from 0.78% to 6.34%, and CPC ranged from $0.33 to $1.24, indicating uneven efficiency across spend.",
+      "The strongest CTRs in the top campaigns were 6.34% and 5.30%, while two campaigns were below 0.80% CTR.",
+      "Campaign spend was relatively concentrated, with the top five campaigns accounting for most of the reported spend in this snapshot."
+    ],
+    "risks": [
+      "Two top campaigns show low CTR and higher CPC relative to the better-performing campaigns, which may be dragging overall efficiency.",
+      "Frequency of 4.2 suggests audiences may be seeing ads multiple times, so creative fatigue should be monitored.",
+      "Because only snapshot data is provided, there is no prior-period comparison here to confirm trend direction."
+    ],
+    "nextActions": [
+      "Review the two lowest-CTR campaigns and test new creative or audience refinements.",
+      "Shift budget toward the campaigns with 5.30% and 6.34% CTR if downstream quality is acceptable.",
+      "Check landing page experience for the 5,617 landing_page_view actions to ensure clicks are converting into site visits as expected.",
+      "Monitor frequency and creative performance to avoid further efficiency decline."
+    ],
+    "slackMessage": "Weekly snapshot: spend 4,243.77 drove 320,745 impressions, 7,695 clicks, 2.4% CTR, and $0.55 CPC. Best campaign CTRs were 6.34% and 5.30%; two campaigns were below 0.80% CTR and should be reviewed."
+  }
+}

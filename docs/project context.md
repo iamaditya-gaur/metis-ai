@@ -6,7 +6,8 @@
 - Repo: `https://github.com/iamaditya-gaur/metis-ai`
 - Local path: `/Users/adi/my-weekender-project`
 - Live URL: `https://metis-ai-nine.vercel.app`
-- Current date context: `2026-04-25` '12:40 AM'
+- Current date context: `2026-04-25 13:12:12 IST`
+- This file is a live handoff document and should be updated when POC/build status changes.
 
 ## User Context
 
@@ -143,11 +144,17 @@ Already decided and present:
 Recommended additions for the MaaS MVP:
 
 - Agent orchestration: `CrewAI`
-- LLM provider: `OpenAI`
-- Observability: `Langfuse`
+- LLM provider: `OpenRouter`
+- Observability: structured local run logs first
 - Run/state persistence: `Supabase`
 - Slack delivery: incoming webhook
 - Meta integration: Meta Marketing API
+
+Provider decision update recorded at `2026-04-25 12:54:29 IST`:
+
+- direct OpenAI API usage has been replaced by `OpenRouter` as the default LLM gateway for this repo
+- default POC model slug should now be `openai/gpt-5.4-mini` unless a slice needs a different model
+- the rest of the locked decisions remain unchanged
 
 Important deployment reality:
 
@@ -158,7 +165,7 @@ Important deployment reality:
 ## Why These Choices Were Made
 
 - `4 agents` keeps the system understandable, scorable for MaaS, and realistic to ship by Saturday.
-- `Langfuse` was chosen because the rubric is capability-based and Langfuse is the quickest path to strong trace visibility for this deadline.
+- Structured local run logs are the active POC observability path because they remove setup overhead and still preserve inspectable run state, tool calls, and agent-step handoffs.
 - `Supabase` remains the durable source of truth because agent-only memory is not enough for a real app.
 - `Paused drafts only` gives real Meta output without risking live client spend.
 - `Account selection from token` is better than hardcoding one ad account and better matches the intended product shape.
@@ -263,6 +270,11 @@ Recent additions:
   - `docs/sub-agents/meta-tools-summary.md`
   - `docs/sub-agents/slack-tools-summary.md`
   - `docs/sub-agents/brand-research-summary.md`
+- current saved POC execution summaries:
+  - `docs/sub-agents/2026-04-25-reporting-pocs-session-summary.md`
+  - `docs/sub-agents/poc-meta-access-summary.md`
+  - `docs/sub-agents/poc-meta-reporting-summary.md`
+  - `docs/sub-agents/poc-report-summary-summary.md`
 
 ## Important Existing Repo Files
 
@@ -283,6 +295,7 @@ Recent additions:
 New planning file added:
 
 - `docs/superpowers/plans/2026-04-25-metis-ai-maas-scope.md`
+- `docs/superpowers/plans/POC Plan.md`
 
 ## Infra / Deployment Status
 
@@ -311,26 +324,176 @@ New planning file added:
 - MaaS product direction is now clearly defined.
 - The 4-agent architecture is locked.
 - The safety boundary is locked.
-- The observability direction is locked: `Langfuse + Supabase`.
-- The next step is not full product build.
-- The next step is a small POC to validate the riskiest assumptions.
+- Observability decision update at `2026-04-25 13:57:57 IST`: use structured local JSONL run logs for the POC now; defer `Langfuse` and `Supabase` observability integration unless all higher-priority POCs pass first.
+- The repo now contains backend-first POC runner scripts under `scripts/pocs/`.
+- The first unattended-safe reporting POC pass has already been executed.
+- The project is in the POC execution phase, not the pre-POC planning phase.
 
-## Next Step: POC
+## Current POC Status
 
-The next agent/session should start by creating and then executing a small POC plan.
+Last updated: `2026-04-25 15:18:00 IST`
 
-The POC should validate these assumptions first:
+The first unattended-safe reporting POC session has already been run, and the next continuation pass has updated the previously blocked LLM slices plus local observability.
 
-1. The Meta token can list accessible ad accounts.
-2. A selected account can return useful insights for a date range.
-3. A brand URL can be fetched and converted into a useful brief.
-4. The reporting flow can generate a good Slack-ready summary.
-5. The builder flow can generate a structured campaign plan and copy pack.
-6. Paused draft creation is actually possible on the chosen test account without touching live campaigns.
-7. Langfuse can capture at least one multi-agent trace.
-8. Supabase can store run, step, tool-call, and artifact records for the POC.
+Account split now in effect:
 
-POC should be backend-first:
+- reporting account label: `CB`
+- reporting account env: `META_REPORTING_ACCOUNT_ID`
+- draft/action account label: `Adi personal`
+- draft/action account env: `META_DRAFT_ACCOUNT_ID`
+
+Completed in order:
+
+1. `poc-meta-access`
+2. `poc-meta-reporting`
+3. `poc-report-summary`
+4. `poc-brand-research`
+5. `poc-brand-brief`
+6. `poc-builder-output`
+7. `poc-draft-validation`
+8. `poc-observability`
+9. `poc-slack-delivery`
+10. `poc-thin-reporting-flow`
+
+Results:
+
+- `poc-meta-access`: passed
+  - the local Meta token returned `17` accessible ad accounts
+  - the env-selected account was accessible
+- `poc-meta-reporting`: passed
+  - the selected account returned `6` campaign-level insight rows
+  - reporting window used: `2026-04-18` to `2026-04-24`
+  - snapshot totals from the saved evidence:
+    - spend: `4243.77`
+    - impressions: `320745`
+    - clicks: `7695`
+    - derived CTR: `2.4%`
+    - derived CPC: `0.55`
+- `poc-report-summary`: passed after OpenRouter rerun
+  - model used: `openai/gpt-5.4-mini`
+  - structured report summary and Slack-ready message are now saved in evidence
+- `poc-brand-research`: passed
+  - target URL used: `https://metis-ai-nine.vercel.app/`
+  - pages crawled successfully: `1`
+  - extracted bundle length: `4007` characters
+  - enough signal for next step: yes
+  - quality note: only one page was captured, but the homepage still yielded usable messaging, positioning, CTA, and workflow text
+- `poc-brand-brief`: passed after OpenRouter alignment
+  - runner assumptions used:
+    - objective: `LEADS`
+    - support level: `full-campaign`
+  - model used: `openai/gpt-5.4-mini`
+  - structured BrandBrief evidence now exists and is reusable
+- `poc-builder-output`: passed after prompt/schema tightening
+  - model used: `openai/gpt-5.4-mini`
+  - output now contains:
+    - `3` funnel stages
+    - `2` TOF variants
+    - `2` MOF variants
+    - `2` BOF variants
+    - a non-empty paused-only `DraftLaunchSpec`
+- `poc-draft-validation`: passed
+  - deterministic validation now normalizes the builder output into paused-only payloads for a later Meta write attempt
+- `poc-observability`: passed
+  - one reporting run is now written to a local JSONL structured log at `logs/pocs/observability-runs.jsonl`
+  - no external observability service setup is required for the current POC path
+- `poc-slack-delivery`: passed
+  - both the plain-text and formatted Slack webhook test messages returned HTTP `200`
+  - the reporting connector is now proven on a real Slack channel
+- `poc-thin-reporting-flow`: passed
+  - reporting now has an end-to-end thin proof:
+    - Meta insights
+    - OpenRouter summary
+    - Slack delivery
+    - local structured observability log
+- `poc-draft-write`: failed on the personal draft account after two real blocker checks
+  - initial write blocker: invalid campaign objective enum from the normalized payload
+  - fixed by mapping planner objective `LEADS` to Meta-valid `OUTCOME_LEADS`
+  - second blocker: the previous token lacked `ads_management`
+  - fixed by replacing it with a new long-lived user token that includes `ads_management` and `business_management`
+  - third blocker: Meta required `is_adset_budget_sharing_enabled`
+  - fixed by setting it explicitly in the normalized campaign payload
+  - final result: one real paused campaign draft was created successfully on `Adi personal`
+- `poc-thin-builder-flow`: passed
+  - builder now has an end-to-end thin proof:
+    - brand research
+    - brand brief
+    - builder output
+    - draft validation
+    - paused draft write
+    - local structured observability
+
+Important implementation learning from the live Meta calls:
+
+- Meta rejected deprecated Ads API version routing during the first access attempt.
+- The shared POC Meta client was updated to default to `v25.0`.
+
+Current stop point:
+
+- the previously blocked OpenRouter slices are now passing
+- the active observability path is local structured logging, and that slice now passes
+- lightweight rate limiting has been added to OpenRouter, Meta, and Slack helper calls
+- Meta rate limiting has now been tightened further:
+  - fixed minimum spacing for reads and writes
+  - response-header-aware cooldowns based on `X-App-Usage`, `X-Ad-Account-Usage`, and `X-Business-Use-Case-Usage`
+  - no aggressive automatic write retries
+- Slack delivery is now passing
+- thin reporting flow is now passing
+- reporting and draft/action account IDs are now split in code and local env
+- `poc-draft-write` is now passing on `Adi personal`
+- `poc-thin-builder-flow` is now passing
+- all planned POCs are now proven at the current thin-slice level
+
+Saved status and evidence:
+
+- session summary:
+  - `docs/sub-agents/2026-04-25-reporting-pocs-session-summary.md`
+- per-slice summaries:
+  - `docs/sub-agents/poc-meta-access-summary.md`
+  - `docs/sub-agents/poc-meta-reporting-summary.md`
+  - `docs/sub-agents/poc-report-summary-summary.md`
+  - `docs/sub-agents/poc-brand-research-summary.md`
+  - `docs/sub-agents/poc-brand-brief-summary.md`
+  - `docs/sub-agents/poc-builder-output-summary.md`
+  - `docs/sub-agents/poc-draft-validation-summary.md`
+  - `docs/sub-agents/poc-observability-summary.md`
+  - `docs/sub-agents/poc-slack-delivery-summary.md`
+  - `docs/sub-agents/poc-thin-reporting-flow-summary.md`
+- per-slice evidence:
+  - `docs/sub-agents/poc-meta-access-evidence.json`
+  - `docs/sub-agents/poc-meta-reporting-evidence.json`
+  - `docs/sub-agents/poc-report-summary-evidence.json`
+  - `docs/sub-agents/poc-brand-research-evidence.json`
+  - `docs/sub-agents/poc-brand-brief-evidence.json`
+  - `docs/sub-agents/poc-builder-output-evidence.json`
+  - `docs/sub-agents/poc-draft-validation-evidence.json`
+  - `docs/sub-agents/poc-observability-evidence.json`
+  - `docs/sub-agents/poc-slack-delivery-evidence.json`
+  - `docs/sub-agents/poc-thin-reporting-flow-evidence.json`
+
+Current practical next step:
+
+- move from POC runners toward app integration using the proven reporting and builder chains
+- preserve the split-account rule:
+  - reporting on `CB`
+  - draft/action writes on `Adi personal`
+- keep the Meta usage controls active in the shared client during app wiring
+
+Suggested immediate execution order for the next agent:
+
+1. Integrate the proven reporting flow into the app.
+2. Integrate the proven builder flow into the app.
+
+## Remaining POC Backlog
+
+The POC plan already exists and the first reporting slice has partial execution evidence. The next sessions should continue the remaining POCs from the current stop point instead of recreating the plan.
+
+Still to prove:
+
+1. Paused draft creation is actually possible on the chosen test account without touching live campaigns.
+2. Thin builder flow works end to end.
+
+Still true for the remaining POCs:
 
 - small scripts or minimal routes
 - no polished UI first
@@ -344,14 +507,16 @@ When continuing in a new agent/session:
    - `README.md`
    - this file
    - `docs/superpowers/plans/2026-04-25-metis-ai-maas-scope.md`
+   - `docs/superpowers/plans/POC Plan.md`
    - the current `src/` files
+   - the current `scripts/pocs/` files
 2. Summarize current state in 5-8 lines.
 3. Do not revisit already-locked decisions unless a real blocker appears.
 4. Read any relevant files in `docs/sub-agents/` before re-researching tool choices.
-5. Create the tiny POC plan.
-6. Execute the POC step by step.
-7. Feed POC learnings back into the context and scope docs before full build.
+5. Check `Current POC Status` in this file first so work resumes from the true stop point.
+6. Execute only the next POC slice needed, step by step.
+7. Feed POC learnings back into this file and the relevant `docs/sub-agents/` summary before full build.
 
 ## Suggested Prompt To Resume In Another Agent
 
-`Read README.md, docs/project context.md, docs/superpowers/plans/2026-04-25-metis-ai-maas-scope.md, and any relevant files under docs/sub-agents/. Inspect the current codebase before doing anything. Continue step by step in the same style. Do the tiny POC first, not the full build. Keep the locked decisions unless a real blocker appears.`
+`Read README.md, docs/project context.md, docs/superpowers/plans/2026-04-25-metis-ai-maas-scope.md, docs/superpowers/plans/POC Plan.md, and any relevant files under docs/sub-agents/. Inspect the current codebase and scripts/pocs before doing anything. Continue from the current POC stop point step by step. Keep the locked decisions unless a real blocker appears.`

@@ -1,0 +1,13 @@
+{
+  "slice": "poc-draft-write",
+  "runAt": "2026-04-25T09:47:44.971Z",
+  "verdict": "PASS",
+  "blocker": null,
+  "selectedAccountId": "act_1626997840718313",
+  "selectedAccountLabel": "Adi personal",
+  "apiStatus": 200,
+  "createdCampaignId": "120242609212900578",
+  "responsePayload": {
+    "id": "120242609212900578"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "slice": "poc-brand-research",
+  "runAt": "2026-04-25T07:07:44.084Z",
+  "verdict": "PASS",
+  "blocker": null,
+  "targetUrl": "https://metis-ai-nine.vercel.app/",
+  "attemptedUrls": [
+    "https://metis-ai-nine.vercel.app/"
+  ],
+  "bundle": {
+    "startUrl": "https://metis-ai-nine.vercel.app/",
+    "pagesCrawled": 1,
+    "pageSummaries": [
+      {
+        "url": "https://metis-ai-nine.vercel.app/",
+        "title": "Metis AI | Meta Ads Agent Waitlist",
+        "metaDescription": "Join the waitlist for Metis AI, a Meta Ads Agent that turns brand inputs into campaign strategy, copy, and reporting summaries.",
+        "h1": [
+          "Strategy, copy, and reporting for Meta teams that need better output without more operational drag."
+        ],
+        "h2": [
+          "Get first access",
+          "Built around the two workflows that usually slow teams down most.",
+          "A tighter path from campaign input to usable output.",
+          "If Meta is a serious growth channel for your team, Metis AI is worth getting in front of early.",
+          "Claim early access"
+        ],
+        "ctas": [
+          "Join The Waitlist"
+        ],
+        "paragraphCount": 17
+      }
+    ],
+    "bundleText": "URL: https://metis-ai-nine.vercel.app/ Title: Metis AI | Meta Ads Agent Waitlist Meta description: Join the waitlist for Metis AI, a Meta Ads Agent that turns brand inputs into campaign strategy, copy, and reporting summaries. H1: Strategy, copy, and reporting for Meta teams that need better output without more operational drag. H2: Get first access | Built around the two workflows that usually slow teams down most. | A tighter path from campaign input to usable output. | If Meta is a serious growth channel for your team, Metis AI is worth getting in front of early. | Claim early access CTAs: Join The Waitlist Paragraphs: I&#x27;m building Metis AI. It helps media buying teams turn brand context into sharper campaign plans, stronger creative direction, and clearer reporting without rebuilding the same process every week. Media buyers, performance marketers, and small agency teams. Campaign planning, creative development, and reporting handoffs. Join the waitlist for early access, release updates, and the first onboarding invite. No noise. Just product updates, release notes, and access invites. Metis AI is designed around campaign creation and campaign review: the work that typically gets scattered across docs, decks, chat threads, and spreadsheets. Give the system the company context and campaign goal, then use the output as a better first draft for planning and creative work. Use campaign history, reporting windows, and prior communication style to create updates that are easier to review internally or share outward. Start from a structured strategic draft instead of rebuilding campaign thinking from scratch every time. Anchor campaign direction in the company’s positioning, tone, and objective instead of generic prompts. Turn reporting inputs into summaries teams can actually review, share, and build on with confidence. Provide the company context, campaign objective, and the level of support needed so the output has the right frame from the start. List items: Metis AI | Meta Ads Agent Waitlist Waitlist Open For Early Operators Strategy, copy, and reporting for Meta teams that need better output without more operational drag. I&#x27;m building Metis AI. It helps media buying teams turn brand context into sharper campaign plans, stronger creative direction, and clearer reporting without rebuilding the same process every week. Built For Media buyers, performance marketers, and small agency teams. Best Use Campaign planning, creative development, and reporting handoffs. Understands the business before it drafts the campaign. Builds strategy, messaging, and reporting from one brief. Helps lean performance teams move with more structure. Primary CTA Get first access Join the waitlist for early access, release updates, and the first onboarding invite. Your work email Join The Waitlist No noise. Just product updates, release notes, and access invites. Teams Built for Performance marketers and agency operators managing live accounts. Drafts Creates Strategy, messaging, and reporting structure from the same context. Prep Reduces Less blank-page planning before campaigns launch or reports go out. Early Access Join the waitlist to get launch updates and onboarding priority. What The Product Covers Built around the two workflows that usually slow teams down most. Metis AI is designed around campaign creation and campaign review: the work that typically gets scattered across docs, decks, chat threads, and spreadsheets. Campaign Builder Turn business context into a stronger campaign starting point. Give the system the company context and campaign goal, then use the output as a better first draft for planning and creative work. Understands the company before recommending direction. | Drafts messaging aligned to the campaign objective. | Produces a strategy outline teams can refine quickly. | Frames the reporting period before summarizing what changed. | Writes updates in a tone the team can reuse. | Makes operator-to-stakeholder handoff cleaner.",
+    "enoughSignal": true,
+    "qualityNotes": [
+      "Only one page was captured."
+    ]
+  }
+}

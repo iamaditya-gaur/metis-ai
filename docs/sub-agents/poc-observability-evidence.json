@@ -1,0 +1,9 @@
+{
+  "slice": "poc-observability",
+  "runAt": "2026-04-25T08:27:42.909Z",
+  "verdict": "PASS",
+  "blocker": null,
+  "runId": "poc-reporting-e0610dab-ed90-4fe1-9c77-625c910adb61",
+  "logWritten": true,
+  "logPath": "logs/pocs/observability-runs.jsonl"
+}

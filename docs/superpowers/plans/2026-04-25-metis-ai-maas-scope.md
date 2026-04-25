@@ -73,10 +73,16 @@ Already decided and present in the project:
 Recommended additions for the MaaS MVP:
 
 - Agent orchestration: CrewAI, preferably via a Python worker/service
-- LLM: OpenAI model via server-side calls only
-- Observability: Langfuse for agent traces, plus Supabase tables for business logs
+- LLM: OpenRouter via server-side calls only
+- Observability: structured local run logs first, with Langfuse and/or Supabase upgrade later if time remains
 - Slack integration: Slack incoming webhook for the weekend
 - Meta integration: Meta Marketing API using a long-lived user token for MVP
+
+Provider decision update on `2026-04-25 12:54:29 IST`:
+
+- OpenRouter replaces direct OpenAI API usage as the default LLM gateway for the repo and weekend MVP.
+- Prefer OpenRouter model slugs in config, starting with `openai/gpt-5.4-mini` for low-cost reporting and builder POCs.
+- Reason: near-identical small top-up cash cost, wider model access for testing agents, and faster fallback across providers from one API.
 
 Deployment reality:
 
@@ -533,9 +539,16 @@ Reason:
 - Langfuse is easier than raw OpenTelemetry for this deadline.
 - The MaaS rubric is capability-based, and Langfuse helps show traces, costs, latency, and step visibility quickly.
 
+POC decision update on `2026-04-25 13:57:57 IST`:
+
+- do not spend remaining POC time integrating Langfuse or Supabase observability infrastructure first
+- use structured local JSONL run logs as the active observability path for the current POC phase
+- preserve the same run concepts: run ID, agent steps, tool calls, artifacts, status, timestamps
+- keep Langfuse and/or Supabase as a later upgrade path only if the higher-priority POCs are already passing
+
 ### 7.2 Internal Observability
 
-Langfuse is not enough by itself. The app should also store business-level traces in Supabase.
+For the current POC phase, internal observability should use structured local run logs written to disk first.
 
 Required tables/concepts:
 
@@ -545,6 +558,13 @@ Required tables/concepts:
 - `run_artifacts`
 - `eval_cases`
 - `eval_results`
+
+POC implementation equivalent:
+
+- one JSONL log file with one event per run
+- each event contains the same business concepts that would later map to DB tables
+- no secrets in the log file
+- log path should stay local to the repo
 
 Required UI capabilities for L4 observability target:
 
@@ -564,7 +584,7 @@ Stretch for L5:
 ### 7.3 What Must Never Be Logged
 
 - Meta access token
-- OpenAI API key
+- OpenRouter API key
 - Langfuse secret key
 - Supabase service role key
 - Slack webhook URL

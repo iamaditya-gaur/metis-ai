@@ -1,0 +1,43 @@
+{
+  "slice": "poc-slack-delivery",
+  "runAt": "2026-04-25T08:38:18.909Z",
+  "verdict": "PASS",
+  "blocker": null,
+  "plainMessageResult": {
+    "status": 200,
+    "payloadPreview": {
+      "text": "Metis AI POC plain-text check (2026-04-25): For 2026-04-18 to 2026-04-24, the account spent 4,243.77 and generated 320,745 impressions, 76,334 reach, 7,695 clicks, a 2.4% CTR, $0.55 CPC, and 4.2 frequency. Overall delivery shows solid click volume with moderate cost efficiency, while performance varies meaningfully across campaigns."
+    },
+    "responseText": "ok"
+  },
+  "formattedMessageResult": {
+    "status": 200,
+    "payloadPreview": {
+      "text": "Weekly snapshot: spend 4,243.77 drove 320,745 impressions, 7,695 clicks, 2.4% CTR, and $0.55 CPC. Best campaign CTRs were 6.34% and 5.30%; two campaigns were below 0.80% CTR and should be reviewed.",
+      "blocks": [
+        {
+          "type": "header",
+          "text": {
+            "type": "plain_text",
+            "text": "Metis AI Reporting POC"
+          }
+        },
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "For 2026-04-18 to 2026-04-24, the account spent 4,243.77 and generated 320,745 impressions, 76,334 reach, 7,695 clicks, a 2.4% CTR, $0.55 CPC, and 4.2 frequency. Overall delivery shows solid click volume with moderate cost efficiency, while performance varies meaningfully across campaigns."
+          }
+        },
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "*Next actions*\n• Review the two lowest-CTR campaigns and test new creative or audience refinements.\n• Shift budget toward the campaigns with 5.30% and 6.34% CTR if downstream quality is acceptable.\n• Check landing page experience for the 5,617 landing_page_view actions to ensure clicks are converting into site visits as expected.\n• Monitor frequency and creative performance to avoid further efficiency decline."
+          }
+        }
+      ]
+    },
+    "responseText": "ok"
+  }
+}

@@ -1,0 +1,187 @@
+{
+  "slice": "poc-meta-access",
+  "runAt": "2026-04-25T04:58:10.400Z",
+  "verdict": "PASS",
+  "blocker": null,
+  "selectedAccountId": "act_***5114",
+  "pages": [
+    {
+      "page": 1,
+      "status": 200,
+      "dataCount": 17,
+      "hasNextPage": false
+    }
+  ],
+  "accounts": [
+    {
+      "id": "act_***6885",
+      "accountId": "***6885",
+      "name": "Am***y",
+      "accountStatus": 2,
+      "currency": "USD",
+      "timezoneName": "America/Los_Angeles",
+      "amountSpent": 0,
+      "selected": false
+    },
+    {
+      "id": "act_***0139",
+      "accountId": "***0139",
+      "name": "In***s",
+      "accountStatus": 1,
+      "currency": "USD",
+      "timezoneName": "America/New_York",
+      "amountSpent": 24081290,
+      "selected": false
+    },
+    {
+      "id": "act_***4899",
+      "accountId": "***4899",
+      "name": "10***9",
+      "accountStatus": 1,
+      "currency": "AUD",
+      "timezoneName": "Australia/Sydney",
+      "amountSpent": 0,
+      "selected": false
+    },
+    {
+      "id": "act_***8192",
+      "accountId": "***8192",
+      "name": "29***2",
+      "accountStatus": 1,
+      "currency": "AUD",
+      "timezoneName": "Australia/Sydney",
+      "amountSpent": 0,
+      "selected": false
+    },
+    {
+      "id": "act_***9636",
+      "accountId": "***9636",
+      "name": "Ad***r",
+      "accountStatus": 101,
+      "currency": "INR",
+      "timezoneName": "America/Los_Angeles",
+      "amountSpent": 0,
+      "selected": false
+    },
+    {
+      "id": "act_***8313",
+      "accountId": "***8313",
+      "name": "Ad***r",
+      "accountStatus": 1,
+      "currency": "USD",
+      "timezoneName": "America/Vancouver",
+      "amountSpent": 0,
+      "selected": false
+    },
+    {
+      "id": "act_***5114",
+      "accountId": "***5114",
+      "name": "Co***y",
+      "accountStatus": 1,
+      "currency": "USD",
+      "timezoneName": "America/New_York",
+      "amountSpent": 44629304,
+      "selected": true
+    },
+    {
+      "id": "act_***6107",
+      "accountId": "***6107",
+      "name": "Pr***R",
+      "accountStatus": 1,
+      "currency": "USD",
+      "timezoneName": "America/Chicago",
+      "amountSpent": 0,
+      "selected": false
+    },
+    {
+      "id": "act_***6502",
+      "accountId": "***6502",
+      "name": "Me***C",
+      "accountStatus": 1,
+      "currency": "USD",
+      "timezoneName": "America/Chicago",
+      "amountSpent": 0,
+      "selected": false
+    },
+    {
+      "id": "act_***3155",
+      "accountId": "***3155",
+      "name": "Am***s",
+      "accountStatus": 1,
+      "currency": "USD",
+      "timezoneName": "America/Los_Angeles",
+      "amountSpent": 779125,
+      "selected": false
+    },
+    {
+      "id": "act_***5434",
+      "accountId": "***5434",
+      "name": "Le***s",
+      "accountStatus": 1,
+      "currency": "USD",
+      "timezoneName": "America/Los_Angeles",
+      "amountSpent": 24059497,
+      "selected": false
+    },
+    {
+      "id": "act_***4975",
+      "accountId": "***4975",
+      "name": "Bi***)",
+      "accountStatus": 1,
+      "currency": "AUD",
+      "timezoneName": "Australia/Sydney",
+      "amountSpent": 94263526,
+      "selected": false
+    },
+    {
+      "id": "act_***1846",
+      "accountId": "***1846",
+      "name": "On***a",
+      "accountStatus": 1,
+      "currency": "INR",
+      "timezoneName": "Asia/Kolkata",
+      "amountSpent": 0,
+      "selected": false
+    },
+    {
+      "id": "act_***2856",
+      "accountId": "***2856",
+      "name": "Fi***s",
+      "accountStatus": 1,
+      "currency": "USD",
+      "timezoneName": "EST",
+      "amountSpent": 0,
+      "selected": false
+    },
+    {
+      "id": "act_***4223",
+      "accountId": "***4223",
+      "name": "Nē***h",
+      "accountStatus": 1,
+      "currency": "USD",
+      "timezoneName": "America/Los_Angeles",
+      "amountSpent": 75454115,
+      "selected": false
+    },
+    {
+      "id": "act_***6356",
+      "accountId": "***6356",
+      "name": "iF***b",
+      "accountStatus": 1,
+      "currency": "USD",
+      "timezoneName": "America/New_York",
+      "amountSpent": 6362428,
+      "selected": false
+    },
+    {
+      "id": "act_***8907",
+      "accountId": "***8907",
+      "name": "My***s",
+      "accountStatus": 1,
+      "currency": "USD",
+      "timezoneName": "America/Los_Angeles",
+      "amountSpent": 238511,
+      "selected": false
+    }
+  ]
+}
