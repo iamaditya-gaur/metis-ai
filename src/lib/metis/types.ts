@@ -156,10 +156,13 @@ export type ReportingRunResponse = {
   finalSlackMessage: string;
   toneProfile: ToneProfile | null;
   toneRewriteBlocked: string | null;
-  slackDelivery: {
-    status: number;
-    responseText: string;
-  };
+  slackDelivery:
+    | {
+        status: number;
+        responseText: string;
+      }
+    | null;
+  slackDeliveryBlocked?: string | null;
 };
 
 export type BuilderPreviewRequest = {

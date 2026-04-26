@@ -122,13 +122,26 @@ export async function runReportingWorkflow(
     ...report,
     slackMessage: finalSlackMessage,
   };
-  const slackDelivery = await postSlackMessageUnsafe({
-    text: finalSlackMessage,
-    blocks: buildReportingSlackBlocks({
-      finalSlackMessage,
-      snapshot,
-    }),
-  });
+  const slackWebhookConfigured = Boolean(process.env.SLACK_WEBHOOK_URL?.trim());
+  let slackDelivery: { status: number; responseText: string } | null = null;
+  let slackDeliveryBlocked: string | null = null;
+
+  if (slackWebhookConfigured) {
+    try {
+      slackDelivery = await postSlackMessageUnsafe({
+        text: finalSlackMessage,
+        blocks: buildReportingSlackBlocks({
+          finalSlackMessage,
+          snapshot,
+        }),
+      });
+    } catch (error) {
+      slackDeliveryBlocked =
+        error instanceof Error ? error.message : "Unknown Slack delivery error.";
+    }
+  } else {
+    slackDeliveryBlocked = "Missing SLACK_WEBHOOK_URL.";
+  }
   const finishedAt = new Date().toISOString();
   const runId = `reporting-${randomUUID()}`;
 
@@ -160,8 +173,9 @@ export async function runReportingWorkflow(
       },
       {
         step: "slack-delivery",
-        status: "success",
-        responseStatus: slackDelivery.status,
+        status: slackDelivery ? "success" : "skipped",
+        responseStatus: slackDelivery?.status ?? null,
+        blocked: slackDeliveryBlocked,
       },
     ],
     toolCalls: [
@@ -176,7 +190,8 @@ export async function runReportingWorkflow(
       },
       {
         tool: "slack-webhook",
-        status: slackDelivery.status,
+        status: slackDelivery?.status ?? null,
+        blocked: slackDeliveryBlocked,
       },
     ],
     artifacts: [
@@ -199,9 +214,7 @@ export async function runReportingWorkflow(
     finalSlackMessage,
     toneProfile,
     toneRewriteBlocked,
-    slackDelivery: {
-      status: slackDelivery.status,
-      responseText: slackDelivery.responseText,
-    },
+    slackDelivery,
+    slackDeliveryBlocked,
   };
 }
