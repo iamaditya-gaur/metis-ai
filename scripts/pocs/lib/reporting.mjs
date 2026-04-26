@@ -18,6 +18,120 @@ function normalizeActionType(actionType) {
   return actionType?.trim().toLowerCase() ?? null;
 }
 
+function humanizeActionType(actionType) {
+  return String(actionType ?? "")
+    .trim()
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+const PRIMARY_RESULT_PRIORITIES = {
+  OUTCOME_SALES: [
+    "purchase",
+    "onsite_conversion.purchase",
+    "omni_purchase",
+    "onsite_web_purchase",
+    "onsite_web_app_purchase",
+    "offsite_conversion.fb_pixel_purchase",
+    "web_in_store_purchase",
+    "web_app_in_store_purchase",
+    "onsite_conversion.initiate_checkout",
+    "initiate_checkout",
+    "onsite_web_initiate_checkout",
+    "omni_initiated_checkout",
+    "add_to_cart",
+    "onsite_conversion.add_to_cart",
+    "onsite_web_add_to_cart",
+    "omni_add_to_cart",
+  ],
+  OUTCOME_LEADS: [
+    "lead",
+    "onsite_web_lead",
+    "offsite_conversion.fb_pixel_lead",
+    "onsite_conversion.lead_grouped",
+    "offsite_complete_registration_add_meta_leads",
+    "complete_registration",
+    "omni_complete_registration",
+    "onsite_conversion.total_messaging_connection",
+    "onsite_conversion.messaging_conversation_started_7d",
+    "onsite_conversion.messaging_conversation_replied_7d",
+  ],
+  OUTCOME_TRAFFIC: ["landing_page_view", "omni_landing_page_view", "link_click"],
+  OUTCOME_ENGAGEMENT: ["post_engagement", "page_engagement", "video_view", "post_reaction"],
+  OUTCOME_AWARENESS: ["reach", "landing_page_view", "page_engagement", "video_view"],
+  OUTCOME_APP_PROMOTION: [
+    "mobile_app_install",
+    "app_install",
+    "onsite_app_purchase",
+    "onsite_app_view_content",
+  ],
+};
+
+const FALLBACK_PRIMARY_RESULTS = [
+  "purchase",
+  "lead",
+  "landing_page_view",
+  "link_click",
+  "post_engagement",
+  "page_engagement",
+  "video_view",
+];
+
+function getDominantObjective(rows) {
+  const spendByObjective = new Map();
+
+  for (const row of rows) {
+    const objective = row.objective ?? "UNKNOWN";
+    spendByObjective.set(objective, (spendByObjective.get(objective) ?? 0) + (row.spend ?? 0));
+  }
+
+  return [...spendByObjective.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] ?? null;
+}
+
+function pickPrimaryResult({
+  rows,
+  totalSpend,
+  actionTotals,
+  topActions,
+}) {
+  const dominantObjective = getDominantObjective(rows);
+  const preferredTypes = [
+    ...(dominantObjective ? (PRIMARY_RESULT_PRIORITIES[dominantObjective] ?? []) : []),
+    ...FALLBACK_PRIMARY_RESULTS,
+  ];
+
+  for (const actionType of preferredTypes) {
+    const value = actionTotals.get(actionType);
+
+    if (!value || value <= 0) {
+      continue;
+    }
+
+    return {
+      actionType,
+      label: humanizeActionType(actionType),
+      value: round(value, 2),
+      costPerResult: round(totalSpend / value, 2),
+      objective: dominantObjective,
+    };
+  }
+
+  const fallback = topActions.find((action) => action.value !== null && action.value > 0) ?? null;
+
+  if (!fallback) {
+    return null;
+  }
+
+  return {
+    actionType: fallback.actionType,
+    label: fallback.label,
+    value: fallback.value,
+    costPerResult: fallback.value ? round(totalSpend / fallback.value, 2) : null,
+    objective: dominantObjective,
+  };
+}
+
 export function buildInsightsSnapshot(rows, dateRange) {
   const totalSpend = sumBy(rows, "spend");
   const totalImpressions = sumBy(rows, "impressions");
@@ -26,6 +140,8 @@ export function buildInsightsSnapshot(rows, dateRange) {
   const derivedCtr =
     totalImpressions > 0 ? round((totalClicks / totalImpressions) * 100, 2) : null;
   const derivedCpc = totalClicks > 0 ? round(totalSpend / totalClicks, 2) : null;
+  const derivedCpm =
+    totalImpressions > 0 ? round((totalSpend / totalImpressions) * 1000, 2) : null;
   const averageFrequency =
     totalReach > 0 ? round(totalImpressions / totalReach, 2) : null;
 
@@ -48,8 +164,16 @@ export function buildInsightsSnapshot(rows, dateRange) {
     .slice(0, 5)
     .map(([actionType, value]) => ({
       actionType,
+      label: humanizeActionType(actionType),
       value: round(value, 2),
     }));
+
+  const primaryResult = pickPrimaryResult({
+    rows,
+    totalSpend,
+    actionTotals,
+    topActions,
+  });
 
   const topCampaigns = [...rows]
     .sort((left, right) => (right.spend ?? 0) - (left.spend ?? 0))
@@ -84,8 +208,10 @@ export function buildInsightsSnapshot(rows, dateRange) {
       reach: totalReach,
       clicks: totalClicks,
       ctr: derivedCtr,
+      cpm: derivedCpm,
       cpc: derivedCpc,
       frequency: averageFrequency,
+      primaryResult,
     },
     topActions,
     topCampaigns,

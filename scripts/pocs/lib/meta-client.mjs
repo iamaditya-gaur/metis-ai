@@ -13,8 +13,8 @@ export class MetaApiError extends Error {
   }
 }
 
-function getMetaAccessToken() {
-  const token = process.env.META_ACCESS_TOKEN?.trim();
+function getMetaAccessToken(tokenOverride = null) {
+  const token = tokenOverride?.trim() || process.env.META_ACCESS_TOKEN?.trim();
 
   if (!token) {
     throw new MetaApiError("Missing META_ACCESS_TOKEN.");
@@ -192,10 +192,10 @@ async function maybeCoolDownFromHeaders(response) {
   return usageHeaders;
 }
 
-function buildUrl(pathname, query = {}) {
+function buildUrl(pathname, query = {}, tokenOverride = null) {
   const normalizedPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
   const url = new URL(`${getGraphBaseUrl()}${normalizedPath}`);
-  const token = getMetaAccessToken();
+  const token = getMetaAccessToken(tokenOverride);
 
   for (const [key, value] of Object.entries(query)) {
     if (value === null || value === undefined || value === "") {
@@ -297,10 +297,10 @@ async function requestWithMethod(url, { method = "GET", body = null } = {}) {
   };
 }
 
-async function requestAllPages(pathname, query, maxPages = 10) {
+async function requestAllPages(pathname, query, maxPages = 10, tokenOverride = null) {
   const pages = [];
   const records = [];
-  let nextUrl = buildUrl(pathname, query).toString();
+  let nextUrl = buildUrl(pathname, query, tokenOverride).toString();
 
   for (let page = 1; nextUrl && page <= maxPages; page += 1) {
     const { status, payload } = await requestJson(nextUrl);
@@ -323,7 +323,10 @@ async function requestAllPages(pathname, query, maxPages = 10) {
   };
 }
 
-export async function listAccessibleAdAccounts() {
+/**
+ * @param {{ accessToken?: string | null }=} options
+ */
+export async function listAccessibleAdAccounts({ accessToken } = {}) {
   const { data, pages } = await requestAllPages(
     "/me/adaccounts",
     {
@@ -332,6 +335,7 @@ export async function listAccessibleAdAccounts() {
       limit: 100,
     },
     5,
+    accessToken ?? null,
   );
 
   return {
@@ -376,11 +380,24 @@ export function resolveDateRangeFromEnv() {
   );
 }
 
-export async function getAccountInsights({ accountId, level = "campaign", dateRange }) {
+/**
+ * @param {{
+ *   accountId: string;
+ *   level?: string;
+ *   dateRange?: { from?: string | null; to?: string | null; preset?: string | null };
+ *   accessToken?: string | null;
+ * }} options
+ */
+export async function getAccountInsights({
+  accountId,
+  level = "campaign",
+  dateRange,
+  accessToken = null,
+}) {
   const normalizedAccountId = normalizeAdAccountId(accountId);
   const query = {
     fields:
-      "account_id,account_name,campaign_id,campaign_name,objective,spend,impressions,reach,clicks,ctr,cpc,frequency,actions,action_values,date_start,date_stop",
+      "account_id,account_name,campaign_id,campaign_name,objective,spend,impressions,reach,clicks,ctr,cpc,frequency,actions,action_values,cost_per_action_type,date_start,date_stop",
     level,
     limit: 100,
     time_increment: "all_days",
@@ -399,6 +416,7 @@ export async function getAccountInsights({ accountId, level = "campaign", dateRa
     `/${normalizedAccountId}/insights`,
     query,
     10,
+    accessToken,
   );
 
   return {
@@ -420,6 +438,7 @@ export async function getAccountInsights({ accountId, level = "campaign", dateRa
       frequency: toNumber(row.frequency),
       actions: normalizeActions(row.actions),
       actionValues: normalizeActions(row.action_values),
+      costPerActionType: normalizeActions(row.cost_per_action_type),
       dateStart: row.date_start ?? null,
       dateStop: row.date_stop ?? null,
     })),
