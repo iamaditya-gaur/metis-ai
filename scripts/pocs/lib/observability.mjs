@@ -1,8 +1,21 @@
 import { appendJsonLine } from "./fs.mjs";
 import { sanitizeGraphPayload } from "./mask.mjs";
 
-const observabilityLogPath =
-  process.env.POC_OBSERVABILITY_LOG_PATH?.trim() || "logs/pocs/observability-runs.jsonl";
+function resolveObservabilityLogPath() {
+  const configured = process.env.POC_OBSERVABILITY_LOG_PATH?.trim();
+
+  if (configured) {
+    return configured;
+  }
+
+  if (process.env.VERCEL) {
+    return "/tmp/metis-observability/observability-runs.jsonl";
+  }
+
+  return "logs/pocs/observability-runs.jsonl";
+}
+
+const observabilityLogPath = resolveObservabilityLogPath();
 
 export function getObservabilityLogPath() {
   return observabilityLogPath;
