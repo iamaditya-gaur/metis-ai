@@ -469,43 +469,128 @@ function buildFormattedSnapshot(snapshot: SnapshotForToneRewrite, toneProfile: T
   };
 }
 
-function normalizeMessageNumericFormatting(message: string, toneProfile: ToneProfile) {
+type NumberStyleSignature = {
+  family: "currency" | "percent" | "plain";
+  hasKSuffix: boolean;
+  hasMSuffix: boolean;
+  hasThousandsSeparator: boolean;
+  decimalPlaces: number;
+};
+
+function classifyNumberToken(token: string): NumberStyleSignature | null {
+  if (!/\d/.test(token)) {
+    return null;
+  }
+
+  const hasPercent = /%\s*$/.test(token);
+  const hasCurrency = token.trim().startsWith("$");
+  const hasKSuffix = /\d[.,\d]*\s*k\b/i.test(token);
+  const hasMSuffix = /\d[.,\d]*\s*m\b/i.test(token);
+  const decimalMatch = token.match(/\.(\d+)/);
+  const decimalPlaces = decimalMatch ? decimalMatch[1].length : 0;
+  const hasThousandsSeparator = /\d,\d{3}\b/.test(token);
+
+  const family: NumberStyleSignature["family"] = hasPercent
+    ? "percent"
+    : hasCurrency
+      ? "currency"
+      : "plain";
+
+  return { family, hasKSuffix, hasMSuffix, hasThousandsSeparator, decimalPlaces };
+}
+
+function extractExampleNumberSignatures(samples: string[]): NumberStyleSignature[] {
+  if (!samples.length) {
+    return [];
+  }
+
+  const joined = samples.join("\n\n");
+  const tokens = joined.match(/\$?\s*\d[\d,]*(?:\.\d+)?\s*[km]?\s*%?/gi) ?? [];
+
+  return tokens
+    .map((token) => token.trim())
+    .map(classifyNumberToken)
+    .filter((signature): signature is NumberStyleSignature => signature !== null);
+}
+
+function numberStyleAppearsInExamples(
+  rawMatch: string,
+  exampleSignatures: NumberStyleSignature[],
+) {
+  if (!exampleSignatures.length) {
+    return false;
+  }
+
+  const candidate = classifyNumberToken(rawMatch);
+
+  if (!candidate) {
+    return false;
+  }
+
+  return exampleSignatures.some(
+    (signature) =>
+      signature.family === candidate.family &&
+      signature.hasKSuffix === candidate.hasKSuffix &&
+      signature.hasMSuffix === candidate.hasMSuffix &&
+      signature.hasThousandsSeparator === candidate.hasThousandsSeparator &&
+      signature.decimalPlaces === candidate.decimalPlaces,
+  );
+}
+
+function normalizeMessageNumericFormatting(
+  message: string,
+  toneProfile: ToneProfile,
+  samples: string[] = [],
+) {
   const { currencyDecimalPlaces, percentDecimalPlaces, plainNumberDecimalPlaces } =
     toneProfile.numericStyle;
+  const exampleSignatures = extractExampleNumberSignatures(samples);
 
   return message
-    .replace(/\$([0-9][0-9,]*\.[0-9]+)/g, (_match, value) => {
-      const numeric = Number(String(value).replace(/,/g, ""));
+    .replace(/\$[0-9][0-9,]*\.[0-9]+/g, (rawMatch) => {
+      if (numberStyleAppearsInExamples(rawMatch, exampleSignatures)) {
+        return rawMatch;
+      }
+      const value = rawMatch.replace(/[^0-9.]/g, "");
+      const numeric = Number(value);
       return Number.isFinite(numeric)
         ? formatStyleValue(
             numeric,
             currencyDecimalPlaces,
             toneProfile.numericStyle.useThousandsSeparators,
             "currency",
-          ) ?? `$${value}`
-        : `$${value}`;
+          ) ?? rawMatch
+        : rawMatch;
     })
-    .replace(/([0-9][0-9,]*\.[0-9]+)\s*%/g, (_match, value) => {
-      const numeric = Number(String(value).replace(/,/g, ""));
+    .replace(/[0-9][0-9,]*\.[0-9]+\s*%/g, (rawMatch) => {
+      if (numberStyleAppearsInExamples(rawMatch, exampleSignatures)) {
+        return rawMatch;
+      }
+      const value = rawMatch.replace(/[^0-9.]/g, "");
+      const numeric = Number(value);
       return Number.isFinite(numeric)
         ? formatStyleValue(
             numeric,
             percentDecimalPlaces,
             toneProfile.numericStyle.useThousandsSeparators,
             "percent",
-          ) ?? `${value}%`
-        : `${value}%`;
+          ) ?? rawMatch
+        : rawMatch;
     })
-    .replace(/(?<!\$)(\b[0-9][0-9,]*\.[0-9]+\b)(?!\s*%)/g, (_match, value) => {
-      const numeric = Number(String(value).replace(/,/g, ""));
+    .replace(/(?<!\$)\b[0-9][0-9,]*\.[0-9]+\b(?!\s*%)/g, (rawMatch) => {
+      if (numberStyleAppearsInExamples(rawMatch, exampleSignatures)) {
+        return rawMatch;
+      }
+      const value = rawMatch.replace(/,/g, "");
+      const numeric = Number(value);
       return Number.isFinite(numeric)
         ? formatStyleValue(
             numeric,
             plainNumberDecimalPlaces,
             toneProfile.numericStyle.useThousandsSeparators,
             "plain",
-          ) ?? value
-        : value;
+          ) ?? rawMatch
+        : rawMatch;
     });
 }
 
@@ -701,7 +786,7 @@ Write the client update now. Channel the EXAMPLES voice. Use only FACTS for cont
 
   const raw = (result.data as { clientMessage: string }).clientMessage.trim();
   return {
-    message: normalizeMessageNumericFormatting(raw, toneProfile),
+    message: normalizeMessageNumericFormatting(raw, toneProfile, samples),
     model: result.model as string,
     samples,
   };
