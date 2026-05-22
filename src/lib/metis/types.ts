@@ -63,6 +63,25 @@ export type RunDetailRecord = RunListItem & {
   artifacts: unknown[];
 };
 
+export type MetricToken =
+  | "spend"
+  | "impressions"
+  | "reach"
+  | "clicks"
+  | "ctr"
+  | "cpm"
+  | "cpc"
+  | "frequency"
+  | "results"
+  | "costPerResult";
+
+export type ContentVocabulary = {
+  mentionedMetrics: MetricToken[];
+  mentionsCampaigns: boolean;
+  mentionsChanges: boolean;
+  averageMetricCount: number;
+};
+
 export type ToneProfile = {
   sampleCount: number;
   brevity: "tight" | "balanced" | "detailed";
@@ -92,6 +111,15 @@ export type ToneProfile = {
     useThousandsSeparators: boolean;
   };
   commonPhrases: string[];
+  contentVocabulary: ContentVocabulary;
+};
+
+export type MetaActivitySummary = {
+  count: number;
+  summary: string;
+  permissionDenied: boolean;
+  status: "success" | "skipped" | "permission-denied" | "error";
+  note?: string | null;
 };
 
 export type ReportingRunRequest = {
@@ -166,6 +194,7 @@ export type ReportingRunResponse = {
       }
     | null;
   slackDeliveryBlocked?: string | null;
+  metaActivities: MetaActivitySummary | null;
 };
 
 export type VoiceMatchVerdict = {

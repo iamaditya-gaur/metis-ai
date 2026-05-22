@@ -6,11 +6,35 @@ import {
   buildReportPromptInput,
   generateOpenRouterReportSummary,
 } from "../../../scripts/pocs/lib/reporting.mjs";
-import { getAccountInsights, normalizeAdAccountId } from "../../../scripts/pocs/lib/meta-client.mjs";
+import {
+  getAccountActivities,
+  getAccountInsights,
+  normalizeAdAccountId,
+} from "../../../scripts/pocs/lib/meta-client.mjs";
 import { writeStructuredRunLog } from "../../../scripts/pocs/lib/observability.mjs";
 
-import { buildToneProfile, composeClientMessage, gradeVoiceMatch } from "@/lib/metis/tone";
-import type { ReportingRunRequest, ReportingRunResponse } from "@/lib/metis/types";
+import {
+  buildToneProfile,
+  composeClientMessage,
+  gradeVoiceMatch,
+  summarizeActivitiesForPrompt,
+  type ActivityRecord,
+} from "@/lib/metis/tone";
+import type {
+  MetaActivitySummary,
+  ReportingRunRequest,
+  ReportingRunResponse,
+} from "@/lib/metis/types";
+
+const getAccountActivitiesUnsafe = getAccountActivities as (args: {
+  accountId: string;
+  dateRange: { from: string; to: string; preset: null; label: string };
+  accessToken: string | null;
+}) => Promise<{
+  activities: ActivityRecord[];
+  permissionDenied: boolean;
+  error: { code: number | null; subcode: number | null; message: string } | null;
+}>;
 
 const postSlackMessageUnsafe = postSlackMessage as (args: {
   text: string;
@@ -106,6 +130,56 @@ export async function runReportingWorkflow(
   let voiceScore: number | null = null;
   let voiceMismatches: string[] = [];
   let voiceRegenerated = false;
+  let metaActivities: MetaActivitySummary | null = null;
+  let changesSummary: string | null = null;
+
+  if (toneProfile?.contentVocabulary.mentionsChanges) {
+    try {
+      const activityResponse = await getAccountActivitiesUnsafe({
+        accountId,
+        dateRange,
+        accessToken: input.accessToken ?? null,
+      });
+
+      if (activityResponse.permissionDenied) {
+        metaActivities = {
+          count: 0,
+          summary: "",
+          permissionDenied: true,
+          status: "permission-denied",
+          note: activityResponse.error?.message ?? null,
+        };
+      } else {
+        const summaryText = summarizeActivitiesForPrompt(activityResponse.activities);
+        changesSummary = summaryText || null;
+        metaActivities = {
+          count: activityResponse.activities.length,
+          summary: summaryText,
+          permissionDenied: false,
+          status: "success",
+          note: null,
+        };
+      }
+    } catch (error) {
+      metaActivities = {
+        count: 0,
+        summary: "",
+        permissionDenied: false,
+        status: "error",
+        note: error instanceof Error ? error.message : "Unknown activities error",
+      };
+    }
+  } else {
+    metaActivities = {
+      count: 0,
+      summary: "",
+      permissionDenied: false,
+      status: "skipped",
+      note: toneProfile
+        ? "examples do not reference campaign changes"
+        : "no tone examples provided",
+    };
+  }
 
   if (toneExamples && toneProfile) {
     try {
@@ -114,6 +188,7 @@ export async function runReportingWorkflow(
         snapshot,
         toneExamples,
         toneProfile,
+        changesSummary,
       });
       let activeMessage = composed.message;
 
@@ -133,6 +208,7 @@ export async function runReportingWorkflow(
               toneExamples,
               toneProfile,
               critiqueFeedback: verdict.mismatches,
+              changesSummary,
             });
             activeMessage = revised.message;
             voiceRegenerated = true;
@@ -194,6 +270,13 @@ export async function runReportingWorkflow(
         rowCount: rows.length,
       },
       {
+        step: "meta-activities",
+        status: metaActivities?.status ?? "skipped",
+        activityCount: metaActivities?.count ?? 0,
+        permissionDenied: metaActivities?.permissionDenied ?? false,
+        note: metaActivities?.note ?? null,
+      },
+      {
         step: "report-summary",
         status: "success",
         model,
@@ -206,6 +289,7 @@ export async function runReportingWorkflow(
         voiceScore,
         voiceRegenerated,
         voiceMismatches,
+        changesUsed: Boolean(changesSummary),
       },
       {
         step: "slack-delivery",
@@ -219,6 +303,13 @@ export async function runReportingWorkflow(
         tool: "meta-insights",
         accountId,
         dateRange,
+      },
+      {
+        tool: "meta-activities",
+        accountId,
+        dateRange,
+        status: metaActivities?.status ?? "skipped",
+        activityCount: metaActivities?.count ?? 0,
       },
       {
         tool: "openrouter-report-summary",
@@ -255,5 +346,6 @@ export async function runReportingWorkflow(
     voiceRegenerated,
     slackDelivery,
     slackDeliveryBlocked,
+    metaActivities,
   };
 }

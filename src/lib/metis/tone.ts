@@ -1,6 +1,12 @@
 import { requestOpenRouterJson } from "../../../scripts/pocs/lib/llm.mjs";
 
-import type { ReportingRunResponse, ToneProfile, VoiceMatchVerdict } from "@/lib/metis/types";
+import type {
+  ContentVocabulary,
+  MetricToken,
+  ReportingRunResponse,
+  ToneProfile,
+  VoiceMatchVerdict,
+} from "@/lib/metis/types";
 
 type ReportForToneRewrite = ReportingRunResponse["report"];
 type SnapshotForToneRewrite = ReportingRunResponse["snapshot"];
@@ -140,6 +146,85 @@ function inferRecommendationStyle(normalizedExamples: string) {
   }
 
   return "neutral" as const;
+}
+
+const METRIC_PATTERNS: Array<{ pattern: RegExp; metric: MetricToken }> = [
+  { pattern: /\b(spend|spent|spending|budget|budgets)\b/i, metric: "spend" },
+  { pattern: /\bimpressions?\b/i, metric: "impressions" },
+  { pattern: /\breach(es|ed)?\b/i, metric: "reach" },
+  { pattern: /\bclicks?\b/i, metric: "clicks" },
+  { pattern: /\b(ctr|click[\s-]through(?:\s+rate)?)\b/i, metric: "ctr" },
+  { pattern: /\bcpm\b/i, metric: "cpm" },
+  { pattern: /\b(cpc|cost\s+per\s+click)\b/i, metric: "cpc" },
+  { pattern: /\bfrequency\b/i, metric: "frequency" },
+  {
+    pattern:
+      /\b(results?|conversions?|purchases?|leads?|sign[\s-]?ups?|signups?|roas)\b/i,
+    metric: "results",
+  },
+  {
+    pattern:
+      /\b(cost\s+per\s+(result|purchase|lead|action|signup|sign[\s-]?up|conversion)|cpp|cpa|cost\/result)\b/i,
+    metric: "costPerResult",
+  },
+];
+
+const CHANGE_VERB_PATTERN =
+  /\b(bump(ed|ing)?|raised|raising|lower(ed|ing)?|paus(ed|ing)|unpaus(ed|ing)|launch(ed|ing)?|relaunch(ed|ing)?|switch(ed|ing)?|swapp(ed|ing)|kill(ed|ing)?|mov(ed|ing)|reallocat(ed|ing)|test(ed|ing)|increas(ed|ing)|decreas(ed|ing)|cut|added|adding|turn(ed|ing)?\s+(on|off)|start(ed|ing)|stopp(ed|ing)|enabl(ed|ing)|disabl(ed|ing)|set\s+up|kick(ed|ing)?\s+off|push(ed|ing)|roll(ed|ing)?\s+out|creat(ed|ing)|delet(ed|ing)|remov(ed|ing)|tweak(ed|ing)|adjust(ed|ing)|shift(ed|ing)|scal(ed|ing)|reduc(ed|ing)|expand(ed|ing)|narrow(ed|ing))\b/i;
+
+const CAMPAIGN_REFERENCE_PATTERN =
+  /\b(campaigns?|ad[\s-]?sets?|adsets?|creatives?|variants?|audiences?)\b/i;
+
+function extractContentVocabulary(samples: string[]): ContentVocabulary {
+  if (!samples.length) {
+    return {
+      mentionedMetrics: [],
+      mentionsCampaigns: false,
+      mentionsChanges: false,
+      averageMetricCount: 0,
+    };
+  }
+
+  const perSampleHits = samples.map((sample) => {
+    const hits = new Set<MetricToken>();
+    for (const { pattern, metric } of METRIC_PATTERNS) {
+      if (pattern.test(sample)) {
+        hits.add(metric);
+      }
+    }
+    return hits;
+  });
+
+  const threshold = Math.max(1, Math.ceil(samples.length / 3));
+  const occurrenceCounts = new Map<MetricToken, number>();
+
+  for (const hits of perSampleHits) {
+    for (const metric of hits) {
+      occurrenceCounts.set(metric, (occurrenceCounts.get(metric) ?? 0) + 1);
+    }
+  }
+
+  const mentionedMetrics: MetricToken[] = [];
+  for (const { metric } of METRIC_PATTERNS) {
+    const count = occurrenceCounts.get(metric) ?? 0;
+    if (count >= threshold && !mentionedMetrics.includes(metric)) {
+      mentionedMetrics.push(metric);
+    }
+  }
+
+  const totalDistinctMentions = perSampleHits.reduce((sum, hits) => sum + hits.size, 0);
+  const averageMetricCount = Math.round((totalDistinctMentions / samples.length) * 10) / 10;
+
+  const joined = samples.join("\n");
+  const mentionsCampaigns = CAMPAIGN_REFERENCE_PATTERN.test(joined);
+  const mentionsChanges = CHANGE_VERB_PATTERN.test(joined);
+
+  return {
+    mentionedMetrics,
+    mentionsCampaigns,
+    mentionsChanges,
+    averageMetricCount,
+  };
 }
 
 function collectCommonPhrases(normalizedExamples: string) {
@@ -309,6 +394,7 @@ function validateToneProfile(value: unknown, fallback: ToneProfile): ToneProfile
           .filter(Boolean)
           .slice(0, 5)
       : fallback.commonPhrases,
+    contentVocabulary: fallback.contentVocabulary,
   };
 }
 
@@ -594,14 +680,180 @@ function normalizeMessageNumericFormatting(
     });
 }
 
-function buildFactLock(snapshot: SnapshotForToneRewrite, report: ReportForToneRewrite, toneProfile: ToneProfile) {
-  return {
-    formattedSnapshot: buildFormattedSnapshot(snapshot, toneProfile),
-    executiveSummary: report.executiveSummary,
-    whatChanged: report.whatChanged,
-    risks: report.risks,
-    nextActions: report.nextActions,
+type MetricRow = { token: MetricToken; label: string; value: string };
+
+function buildMetricRows(
+  snapshot: SnapshotForToneRewrite,
+  toneProfile: ToneProfile,
+): MetricRow[] {
+  const formatted = buildFormattedSnapshot(snapshot, toneProfile);
+  const { numericStyle } = toneProfile;
+  const rows: MetricRow[] = [];
+
+  const push = (token: MetricToken, label: string, value: string | null | undefined) => {
+    if (value === null || value === undefined || value === "") {
+      return;
+    }
+    rows.push({ token, label, value });
   };
+
+  push("spend", "Spend", formatted.totals.spend);
+  push("impressions", "Impressions", formatted.totals.impressions);
+  push("reach", "Reach", formatted.totals.reach);
+  push("clicks", "Clicks", formatted.totals.clicks);
+  push("ctr", "CTR", formatted.totals.ctr);
+  push("cpc", "CPC", formatted.totals.cpc);
+  push("frequency", "Frequency", formatted.totals.frequency);
+
+  const cpm = formatStyleValue(
+    snapshot.totals.cpm,
+    numericStyle.currencyDecimalPlaces,
+    numericStyle.useThousandsSeparators,
+    "currency",
+  );
+  push("cpm", "CPM", cpm);
+
+  const primary = snapshot.totals.primaryResult;
+  if (primary) {
+    const resultsValue = formatStyleValue(
+      primary.value,
+      0,
+      numericStyle.useThousandsSeparators,
+      "plain",
+    );
+    const costPerResultValue = formatStyleValue(
+      primary.costPerResult,
+      numericStyle.currencyDecimalPlaces,
+      numericStyle.useThousandsSeparators,
+      "currency",
+    );
+    push("results", primary.label || "Results", resultsValue);
+    push(
+      "costPerResult",
+      `Cost per ${(primary.label || "result").toLowerCase()}`,
+      costPerResultValue,
+    );
+  }
+
+  return rows;
+}
+
+function partitionMetricRows(rows: MetricRow[], vocabulary: ContentVocabulary) {
+  const mentioned = new Set<MetricToken>(vocabulary.mentionedMetrics);
+  const primary: MetricRow[] = [];
+  const optional: MetricRow[] = [];
+
+  for (const row of rows) {
+    if (mentioned.has(row.token)) {
+      primary.push(row);
+    } else {
+      optional.push(row);
+    }
+  }
+
+  return { primary, optional };
+}
+
+function renderMetricRows(rows: MetricRow[]) {
+  if (!rows.length) {
+    return "- (none available)";
+  }
+  return rows.map((row) => `- ${row.label}: ${row.value}`).join("\n");
+}
+
+export type ActivityRecord = {
+  eventType: string | null;
+  translatedEventType: string | null;
+  eventTime: string | null;
+  objectId: string | null;
+  objectName: string | null;
+  objectType: string | null;
+  valueOld: string | null;
+  valueNew: string | null;
+  actorId: string | null;
+  actorName: string | null;
+  extraData: unknown;
+};
+
+function humanizeEventType(eventType: string | null): string | null {
+  if (!eventType) {
+    return null;
+  }
+  return eventType.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+}
+
+function formatActivityValue(value: unknown): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === "string") {
+    return value.trim() || null;
+  }
+  if (typeof value === "number") {
+    return String(value);
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return null;
+  }
+}
+
+function formatActivityLine(activity: ActivityRecord): string | null {
+  const eventLabel =
+    activity.translatedEventType?.trim() || humanizeEventType(activity.eventType);
+
+  if (!eventLabel) {
+    return null;
+  }
+
+  const date = activity.eventTime ? activity.eventTime.slice(0, 10) : null;
+  const objectName = activity.objectName?.trim();
+  const objectType = activity.objectType?.trim();
+  const objectPart = objectName
+    ? ` on "${objectName}"${objectType ? ` [${objectType}]` : ""}`
+    : "";
+
+  const oldValue = formatActivityValue(activity.valueOld);
+  const newValue = formatActivityValue(activity.valueNew);
+  const valueChange = oldValue && newValue ? ` (${oldValue} → ${newValue})` : "";
+
+  const datePart = date ? `${date}: ` : "";
+  return `- ${datePart}${eventLabel}${objectPart}${valueChange}`.trim();
+}
+
+export function summarizeActivitiesForPrompt(
+  activities: ActivityRecord[],
+  maxItems = 10,
+): string {
+  if (!activities.length) {
+    return "";
+  }
+
+  const sorted = [...activities].sort((a, b) => {
+    const aTime = a.eventTime ?? "";
+    const bTime = b.eventTime ?? "";
+    return bTime.localeCompare(aTime);
+  });
+
+  const lines: string[] = [];
+  for (const activity of sorted) {
+    const line = formatActivityLine(activity);
+    if (line) {
+      lines.push(line);
+    }
+    if (lines.length >= maxItems) {
+      break;
+    }
+  }
+
+  if (activities.length > lines.length) {
+    lines.push(
+      `- (+ ${activities.length - lines.length} additional edit${activities.length - lines.length === 1 ? "" : "s"} omitted for brevity)`,
+    );
+  }
+
+  return lines.join("\n");
 }
 
 export function deriveToneProfile(toneExamples: string): ToneProfile {
@@ -635,6 +887,7 @@ export function deriveToneProfile(toneExamples: string): ToneProfile {
     },
     numericStyle: inferNumericStyle(samples),
     commonPhrases: collectCommonPhrases(normalized),
+    contentVocabulary: extractContentVocabulary(samples),
   };
 }
 
@@ -685,27 +938,87 @@ export async function buildToneProfile(toneExamples: string): Promise<ToneProfil
 }
 
 const COMPOSE_SYSTEM_PROMPT =
-  "You are writing a client-facing performance update as the same author who wrote the EXAMPLES below. Channel their voice: their sentence rhythm, vocabulary, idioms, signature phrases, paragraph shape, greetings, sign-offs, and quirks. The EXAMPLES are the gospel for HOW to write. The FACTS payload is the gospel for WHAT to say — every metric and claim must come from FACTS, never invented. When mentioning numbers, prefer the exact formatted strings supplied under formattedSnapshot unless a clear pattern from the EXAMPLES dictates a different style for the same value. Your job is to write a fresh message that a long-time reader would assume the author wrote themselves. Return valid JSON only: {\"clientMessage\": \"...\"}.";
+  "You are writing a client-facing performance update as the same author who wrote the EXAMPLES below. Channel their voice: their sentence rhythm, vocabulary, idioms, signature phrases, paragraph shape, greetings, sign-offs, and quirks. The EXAMPLES are the gospel for HOW to write. The NARRATIVE_FACTS, METRICS_PRIMARY, METRICS_OPTIONAL, CAMPAIGNS, and CHANGES blocks are the gospel for WHAT to say — every metric and claim must come from these, never invented. METRICS_PRIMARY lists the metrics this author typically discusses; prefer those when you mention numbers. METRICS_OPTIONAL is available only if the narrative genuinely requires it — do not list those metrics for completeness; do not exceed the author's typical metric density by more than one. CAMPAIGNS may be referenced by name only if the EXAMPLES show this author naming campaigns. CHANGES (when present) describes campaign edits made during the period; weave only the relevant ones, in the way the EXAMPLES handle edits — never force a separate 'changes' section unless the EXAMPLES have one. When mentioning numbers, prefer the exact formatted strings supplied unless a clear pattern from the EXAMPLES dictates a different style for the same value. Your job is to write a fresh message that a long-time reader would assume the author wrote themselves. Return valid JSON only: {\"clientMessage\": \"...\"}.";
 
-function buildFactsBlock(
+function buildNarrativeFactsBlock(
   snapshot: SnapshotForToneRewrite,
   report: ReportForToneRewrite,
-  toneProfile: ToneProfile,
 ) {
-  const factLock = buildFactLock(snapshot, report, toneProfile);
   const list = (items: string[]) =>
     items.length ? items.map((item) => `- ${item}`).join("\n") : "- (none)";
 
-  return [
-    `Date range: ${snapshot.dateRange.label}`,
-    `Row count: ${snapshot.rowCount}`,
-    `Executive summary: ${factLock.executiveSummary}`,
-    `What changed:\n${list(factLock.whatChanged)}`,
-    `Risks:\n${list(factLock.risks)}`,
-    `Next actions:\n${list(factLock.nextActions)}`,
-    `Formatted metrics (use these strings when mentioning numbers, unless the EXAMPLES show a different style for the same value):`,
-    JSON.stringify(factLock.formattedSnapshot, null, 2),
-  ].join("\n\n");
+  return `<NARRATIVE_FACTS>
+Date range: ${snapshot.dateRange.label}
+Row count: ${snapshot.rowCount}
+Executive summary: ${report.executiveSummary}
+What changed:
+${list(report.whatChanged)}
+Risks:
+${list(report.risks)}
+Next actions:
+${list(report.nextActions)}
+</NARRATIVE_FACTS>`;
+}
+
+function buildMetricsBlocks(
+  snapshot: SnapshotForToneRewrite,
+  toneProfile: ToneProfile,
+) {
+  const rows = buildMetricRows(snapshot, toneProfile);
+  const { primary, optional } = partitionMetricRows(rows, toneProfile.contentVocabulary);
+  const vocabulary = toneProfile.contentVocabulary;
+
+  const densityHint = vocabulary.averageMetricCount > 0
+    ? `The author typically references about ${vocabulary.averageMetricCount} distinct metric(s) per message. Match that density — do not exceed it by more than one.`
+    : "The examples do not heavily reference metrics by name. Keep metric mentions minimal unless the narrative requires them.";
+
+  const primaryBlock = `<METRICS_PRIMARY>
+${primary.length ? "These are the metrics this author typically discusses. Prefer these when mentioning numbers." : "(no metric vocabulary detected from the examples — see METRICS_OPTIONAL for what is available)"}
+${renderMetricRows(primary)}
+
+${densityHint}
+</METRICS_PRIMARY>`;
+
+  const optionalBlock = `<METRICS_OPTIONAL>
+Other metrics available for reference. Use only if the narrative genuinely requires them — do not list these for completeness.
+${renderMetricRows(optional)}
+</METRICS_OPTIONAL>`;
+
+  return `${primaryBlock}\n\n${optionalBlock}`;
+}
+
+function buildCampaignsBlock(
+  snapshot: SnapshotForToneRewrite,
+  toneProfile: ToneProfile,
+) {
+  if (!toneProfile.contentVocabulary.mentionsCampaigns) {
+    return "";
+  }
+
+  const formatted = buildFormattedSnapshot(snapshot, toneProfile);
+  if (!formatted.topCampaigns.length) {
+    return "";
+  }
+
+  const lines = formatted.topCampaigns
+    .slice(0, 5)
+    .map((campaign) => {
+      const parts: string[] = [];
+      if (campaign.spend) parts.push(`spend ${campaign.spend}`);
+      if (campaign.clicks) parts.push(`${campaign.clicks} clicks`);
+      if (campaign.ctr) parts.push(`CTR ${campaign.ctr}`);
+      if (campaign.cpc) parts.push(`CPC ${campaign.cpc}`);
+      const detail = parts.length ? parts.join(", ") : "no headline metrics available";
+      const name = campaign.campaignName ?? "Unnamed campaign";
+      const objective = campaign.objective ? ` [${campaign.objective}]` : "";
+      return `- "${name}"${objective} — ${detail}`;
+    })
+    .join("\n");
+
+  return `<CAMPAIGNS>
+Top campaigns by spend. This author typically references campaigns by name — use one or two if the narrative calls for it, never list them all.
+${lines}
+</CAMPAIGNS>`;
 }
 
 function buildExamplesBlock(samples: string[]) {
@@ -733,16 +1046,20 @@ export async function composeClientMessage({
   toneExamples,
   toneProfile,
   critiqueFeedback,
+  changesSummary,
 }: {
   report: ReportForToneRewrite;
   snapshot: SnapshotForToneRewrite;
   toneExamples: string;
   toneProfile: ToneProfile;
   critiqueFeedback?: string[];
+  changesSummary?: string | null;
 }) {
   const samples = splitToneExamples(toneExamples).slice(0, 8);
   const examplesBlock = buildExamplesBlock(samples);
-  const factsBlock = buildFactsBlock(snapshot, report, toneProfile);
+  const narrativeFactsBlock = buildNarrativeFactsBlock(snapshot, report);
+  const metricsBlocks = buildMetricsBlocks(snapshot, toneProfile);
+  const campaignsBlock = buildCampaignsBlock(snapshot, toneProfile);
   const lengthHint = `Target around ${toneProfile.targetWordCount} words, typically between ${toneProfile.wordRange.min} and ${toneProfile.wordRange.max}, to match the examples.`;
 
   const critiqueBlock =
@@ -755,19 +1072,33 @@ ${critiqueFeedback.map((item) => `- ${item}`).join("\n")}
 `
       : "";
 
-  const userMessage = `${critiqueBlock}${examplesBlock}
+  const trimmedChanges = changesSummary?.trim() ?? "";
+  const changesBlock = trimmedChanges
+    ? `<CHANGES>
+Campaign edits made by this author during the reporting window. Weave only the relevant ones into the message in the way the EXAMPLES handle changes — do not force a separate "changes" section unless the EXAMPLES have one.
+${trimmedChanges}
+</CHANGES>
 
-<FACTS>
-${factsBlock}
-</FACTS>
+`
+    : "";
 
-<LENGTH>
-${lengthHint}
-</LENGTH>
+  const sections = [
+    critiqueBlock,
+    examplesBlock,
+    "",
+    changesBlock,
+    metricsBlocks,
+    "",
+    campaignsBlock,
+    campaignsBlock ? "" : null,
+    narrativeFactsBlock,
+    "",
+    `<LENGTH>\n${lengthHint}\n</LENGTH>`,
+    "",
+    `<TASK>\nWrite the client update now. Channel the EXAMPLES voice. Use only the facts provided. Never invent numbers. Keep it Slack-safe and ready to send as-is. Output JSON: {"clientMessage": "..."}.\n</TASK>`,
+  ].filter((value): value is string => typeof value === "string" && value !== "");
 
-<TASK>
-Write the client update now. Channel the EXAMPLES voice. Use only FACTS for content. Never invent numbers. Keep it Slack-safe and ready to send as-is. Output JSON: {"clientMessage": "..."}.
-</TASK>`;
+  const userMessage = sections.join("\n\n");
 
   const result = await requestOpenRouterJson({
     systemPrompt: COMPOSE_SYSTEM_PROMPT,
