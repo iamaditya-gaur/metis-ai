@@ -9,7 +9,7 @@ import {
 import { getAccountInsights, normalizeAdAccountId } from "../../../scripts/pocs/lib/meta-client.mjs";
 import { writeStructuredRunLog } from "../../../scripts/pocs/lib/observability.mjs";
 
-import { buildToneProfile, rewriteClientMessageTone } from "@/lib/metis/tone";
+import { buildToneProfile, composeClientMessage } from "@/lib/metis/tone";
 import type { ReportingRunRequest, ReportingRunResponse } from "@/lib/metis/types";
 
 const postSlackMessageUnsafe = postSlackMessage as (args: {
@@ -106,15 +106,16 @@ export async function runReportingWorkflow(
 
   if (toneExamples && toneProfile) {
     try {
-      finalSlackMessage = await rewriteClientMessageTone({
+      const composed = await composeClientMessage({
         report,
         snapshot,
         toneExamples,
         toneProfile,
       });
+      finalSlackMessage = composed.message;
     } catch (error) {
       toneRewriteBlocked =
-        error instanceof Error ? error.message : "Unknown tone rewrite error.";
+        error instanceof Error ? error.message : "Unknown compose error.";
     }
   }
 

@@ -3,7 +3,8 @@ import { readRateLimitMs, waitForRateLimit } from "./rate-limit.mjs";
 /**
  * @param {{
  *   systemPrompt: string;
- *   userPayload: unknown;
+ *   userPayload?: unknown;
+ *   userMessage?: string;
  *   model?: string;
  *   models?: string[] | null;
  *   temperature?: number;
@@ -12,10 +13,17 @@ import { readRateLimitMs, waitForRateLimit } from "./rate-limit.mjs";
 export async function requestOpenRouterJson({
   systemPrompt,
   userPayload,
+  userMessage,
   model = process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-5.4-mini",
   models = null,
   temperature,
 }) {
+  if (typeof userMessage !== "string" && userPayload === undefined) {
+    throw new Error("requestOpenRouterJson requires either userMessage or userPayload.");
+  }
+
+  const resolvedUserContent =
+    typeof userMessage === "string" ? userMessage : JSON.stringify(userPayload);
   const apiKey = process.env.OPENROUTER_API_KEY?.trim();
 
   if (!apiKey) {
@@ -58,7 +66,7 @@ export async function requestOpenRouterJson({
           },
           {
             role: "user",
-            content: JSON.stringify(userPayload),
+            content: resolvedUserContent,
           },
         ],
       }),

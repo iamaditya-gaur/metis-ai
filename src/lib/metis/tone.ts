@@ -372,13 +372,14 @@ function getCommunicatorModelCandidates() {
   ];
 }
 
-function getCommunicatorTemperature() {
+function getComposeTemperature() {
   const configured = Number(process.env.OPENROUTER_CLIENT_MESSAGE_TEMPERATURE ?? "");
-  return Number.isFinite(configured) ? configured : 0.35;
+  return Number.isFinite(configured) ? configured : 0.7;
 }
 
-function getLengthGuidance(toneProfile: ToneProfile) {
-  return `Target ${toneProfile.targetWordCount} words, typically between ${toneProfile.wordRange.min} and ${toneProfile.wordRange.max} words to match the examples.`;
+function getToneProfileTemperature() {
+  const configured = Number(process.env.OPENROUTER_TONE_PROFILE_TEMPERATURE ?? "");
+  return Number.isFinite(configured) ? configured : 0.35;
 }
 
 function buildFormattedSnapshot(snapshot: SnapshotForToneRewrite, toneProfile: ToneProfile) {
@@ -515,7 +516,6 @@ function buildFactLock(snapshot: SnapshotForToneRewrite, report: ReportForToneRe
     whatChanged: report.whatChanged,
     risks: report.risks,
     nextActions: report.nextActions,
-    originalSlackMessage: normalizeMessageNumericFormatting(report.slackMessage, toneProfile),
   };
 }
 
@@ -590,7 +590,7 @@ export async function buildToneProfile(toneExamples: string): Promise<ToneProfil
         heuristicProfile,
       },
       models: getCommunicatorModelCandidates(),
-      temperature: getCommunicatorTemperature(),
+      temperature: getToneProfileTemperature(),
     });
 
     return validateToneProfile(result.data, heuristicProfile);
@@ -599,45 +599,110 @@ export async function buildToneProfile(toneExamples: string): Promise<ToneProfil
   }
 }
 
-export async function rewriteClientMessageTone({
+const COMPOSE_SYSTEM_PROMPT =
+  "You are writing a client-facing performance update as the same author who wrote the EXAMPLES below. Channel their voice: their sentence rhythm, vocabulary, idioms, signature phrases, paragraph shape, greetings, sign-offs, and quirks. The EXAMPLES are the gospel for HOW to write. The FACTS payload is the gospel for WHAT to say — every metric and claim must come from FACTS, never invented. When mentioning numbers, prefer the exact formatted strings supplied under formattedSnapshot unless a clear pattern from the EXAMPLES dictates a different style for the same value. Your job is to write a fresh message that a long-time reader would assume the author wrote themselves. Return valid JSON only: {\"clientMessage\": \"...\"}.";
+
+function buildFactsBlock(
+  snapshot: SnapshotForToneRewrite,
+  report: ReportForToneRewrite,
+  toneProfile: ToneProfile,
+) {
+  const factLock = buildFactLock(snapshot, report, toneProfile);
+  const list = (items: string[]) =>
+    items.length ? items.map((item) => `- ${item}`).join("\n") : "- (none)";
+
+  return [
+    `Date range: ${snapshot.dateRange.label}`,
+    `Row count: ${snapshot.rowCount}`,
+    `Executive summary: ${factLock.executiveSummary}`,
+    `What changed:\n${list(factLock.whatChanged)}`,
+    `Risks:\n${list(factLock.risks)}`,
+    `Next actions:\n${list(factLock.nextActions)}`,
+    `Formatted metrics (use these strings when mentioning numbers, unless the EXAMPLES show a different style for the same value):`,
+    JSON.stringify(factLock.formattedSnapshot, null, 2),
+  ].join("\n\n");
+}
+
+function buildExamplesBlock(samples: string[]) {
+  if (!samples.length) {
+    return "";
+  }
+
+  const blocks = samples
+    .map(
+      (sample, index) =>
+        `<example index="${index + 1}">\n${sample}\n</example>`,
+    )
+    .join("\n\n");
+
+  return `<EXAMPLES>
+The following are real client messages this author has sent before. Treat them as exemplars of the author's voice — match their sentence rhythm, vocabulary, idioms, signature phrases, paragraph shape, greetings, and sign-offs.
+
+${blocks}
+</EXAMPLES>`;
+}
+
+export async function composeClientMessage({
   report,
   snapshot,
   toneExamples,
   toneProfile,
+  critiqueFeedback,
 }: {
   report: ReportForToneRewrite;
   snapshot: SnapshotForToneRewrite;
   toneExamples: string;
   toneProfile: ToneProfile;
+  critiqueFeedback?: string[];
 }) {
-  const samples = splitToneExamples(toneExamples);
+  const samples = splitToneExamples(toneExamples).slice(0, 8);
+  const examplesBlock = buildExamplesBlock(samples);
+  const factsBlock = buildFactsBlock(snapshot, report, toneProfile);
+  const lengthHint = `Target around ${toneProfile.targetWordCount} words, typically between ${toneProfile.wordRange.min} and ${toneProfile.wordRange.max}, to match the examples.`;
+
+  const critiqueBlock =
+    critiqueFeedback && critiqueFeedback.length
+      ? `<CRITIQUE>
+A previous draft scored low on voice match. Fix these specific mismatches while keeping every fact intact and never inventing numbers:
+${critiqueFeedback.map((item) => `- ${item}`).join("\n")}
+</CRITIQUE>
+
+`
+      : "";
+
+  const userMessage = `${critiqueBlock}${examplesBlock}
+
+<FACTS>
+${factsBlock}
+</FACTS>
+
+<LENGTH>
+${lengthHint}
+</LENGTH>
+
+<TASK>
+Write the client update now. Channel the EXAMPLES voice. Use only FACTS for content. Never invent numbers. Keep it Slack-safe and ready to send as-is. Output JSON: {"clientMessage": "..."}.
+</TASK>`;
+
   const result = await requestOpenRouterJson({
-    systemPrompt:
-      "You are the Client Communicator step for Metis AI. Return valid JSON only with key clientMessage. Write a client-facing reporting update that closely matches the supplied examples in length, numeric formatting, pacing, paragraph shape, and phrasing style while preserving the exact facts from the factual input. Never invent metrics, never add extra decimal precision, and never emit reformatted numbers when a formatted metric string is already supplied.",
-    userPayload: {
-      task: "Write the final client-style reporting update.",
-      outputRules: [
-        getLengthGuidance(toneProfile),
-        "Use the formatted metric strings from factLock whenever you mention numbers.",
-        "Do not introduce any number that is not supported by factLock.",
-        "Stay close to the examples on message length, paragraph count, and numeric presentation.",
-        "Keep the message Slack-safe and ready to send as-is.",
-      ],
-      styleBrief: toneProfile,
-      examples: samples.slice(0, 4),
-      factLock: buildFactLock(snapshot, report, toneProfile),
-    },
+    systemPrompt: COMPOSE_SYSTEM_PROMPT,
+    userMessage,
     models: getCommunicatorModelCandidates(),
-    temperature: getCommunicatorTemperature(),
+    temperature: getComposeTemperature(),
   });
 
   if (
     !result.data ||
     typeof result.data !== "object" ||
-    typeof result.data.clientMessage !== "string"
+    typeof (result.data as { clientMessage?: unknown }).clientMessage !== "string"
   ) {
-    throw new Error("Tone rewrite response was missing clientMessage.");
+    throw new Error("Compose response was missing clientMessage.");
   }
 
-  return normalizeMessageNumericFormatting(result.data.clientMessage.trim(), toneProfile);
+  const raw = (result.data as { clientMessage: string }).clientMessage.trim();
+  return {
+    message: normalizeMessageNumericFormatting(raw, toneProfile),
+    model: result.model as string,
+    samples,
+  };
 }
