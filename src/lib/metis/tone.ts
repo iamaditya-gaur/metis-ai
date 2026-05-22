@@ -1,6 +1,6 @@
 import { requestOpenRouterJson } from "../../../scripts/pocs/lib/llm.mjs";
 
-import type { ReportingRunResponse, ToneProfile } from "@/lib/metis/types";
+import type { ReportingRunResponse, ToneProfile, VoiceMatchVerdict } from "@/lib/metis/types";
 
 type ReportForToneRewrite = ReportingRunResponse["report"];
 type SnapshotForToneRewrite = ReportingRunResponse["snapshot"];
@@ -704,5 +704,82 @@ Write the client update now. Channel the EXAMPLES voice. Use only FACTS for cont
     message: normalizeMessageNumericFormatting(raw, toneProfile),
     model: result.model as string,
     samples,
+  };
+}
+
+function getVoiceJudgeModelCandidates() {
+  const explicit = process.env.OPENROUTER_TONE_JUDGE_MODEL?.trim();
+
+  if (explicit) {
+    return explicit
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  return [process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-5.4-mini"];
+}
+
+function getVoiceRegenerateThreshold() {
+  const configured = Number(process.env.METIS_TONE_REGENERATE_THRESHOLD ?? "");
+  return Number.isFinite(configured) ? clamp(configured, 0, 10) : 7;
+}
+
+const VOICE_JUDGE_SYSTEM_PROMPT =
+  "You are a voice-match judge for client reporting messages. Compare a CANDIDATE message against EXAMPLES written by the same author. Score how convincingly the candidate sounds like the same author wrote it, on a 0-10 scale where 10 = a long-time reader would assume the author wrote it themselves and 0 = clearly different voice. Judge voice only: sentence rhythm, vocabulary, idioms, signature phrases, paragraph shape, greetings, sign-offs, level of formality, pacing, and number-formatting style. Ignore factual content — that is verified elsewhere. Return valid JSON only: {\"score\": number, \"mismatches\": string[]} where mismatches is a list of concrete, fixable style issues (e.g. \"opens with a generic greeting; examples open with 'Quick update from my side'\"). Keep mismatches to at most 5 items, each one short and actionable.";
+
+export async function gradeVoiceMatch({
+  clientMessage,
+  samples,
+}: {
+  clientMessage: string;
+  samples: string[];
+}): Promise<VoiceMatchVerdict> {
+  if (!samples.length || !clientMessage.trim()) {
+    return { score: 10, mismatches: [], shouldRegenerate: false };
+  }
+
+  const exampleBlocks = samples
+    .map(
+      (sample, index) =>
+        `<example index="${index + 1}">\n${sample}\n</example>`,
+    )
+    .join("\n\n");
+
+  const userMessage = `<EXAMPLES>
+${exampleBlocks}
+</EXAMPLES>
+
+<CANDIDATE>
+${clientMessage}
+</CANDIDATE>
+
+<TASK>
+Score the candidate against the examples on voice only. Output JSON: {"score": 0-10, "mismatches": [string, ...]}.
+</TASK>`;
+
+  const result = await requestOpenRouterJson({
+    systemPrompt: VOICE_JUDGE_SYSTEM_PROMPT,
+    userMessage,
+    models: getVoiceJudgeModelCandidates(),
+    temperature: 0,
+  });
+
+  const data = result.data as { score?: unknown; mismatches?: unknown } | null;
+  const rawScore =
+    typeof data?.score === "number" && Number.isFinite(data.score) ? data.score : 0;
+  const score = clamp(roundToInteger(rawScore), 0, 10);
+  const mismatches = Array.isArray(data?.mismatches)
+    ? data.mismatches
+        .map((item) => String(item).trim())
+        .filter(Boolean)
+        .slice(0, 5)
+    : [];
+  const threshold = getVoiceRegenerateThreshold();
+
+  return {
+    score,
+    mismatches,
+    shouldRegenerate: score < threshold,
   };
 }

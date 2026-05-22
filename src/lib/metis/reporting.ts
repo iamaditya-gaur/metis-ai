@@ -9,7 +9,7 @@ import {
 import { getAccountInsights, normalizeAdAccountId } from "../../../scripts/pocs/lib/meta-client.mjs";
 import { writeStructuredRunLog } from "../../../scripts/pocs/lib/observability.mjs";
 
-import { buildToneProfile, composeClientMessage } from "@/lib/metis/tone";
+import { buildToneProfile, composeClientMessage, gradeVoiceMatch } from "@/lib/metis/tone";
 import type { ReportingRunRequest, ReportingRunResponse } from "@/lib/metis/types";
 
 const postSlackMessageUnsafe = postSlackMessage as (args: {
@@ -103,6 +103,9 @@ export async function runReportingWorkflow(
   const toneProfile = toneExamples ? await buildToneProfile(toneExamples) : null;
   let finalSlackMessage = report.slackMessage;
   let toneRewriteBlocked: string | null = null;
+  let voiceScore: number | null = null;
+  let voiceMismatches: string[] = [];
+  let voiceRegenerated = false;
 
   if (toneExamples && toneProfile) {
     try {
@@ -112,7 +115,36 @@ export async function runReportingWorkflow(
         toneExamples,
         toneProfile,
       });
-      finalSlackMessage = composed.message;
+      let activeMessage = composed.message;
+
+      try {
+        const verdict = await gradeVoiceMatch({
+          clientMessage: composed.message,
+          samples: composed.samples,
+        });
+        voiceScore = verdict.score;
+        voiceMismatches = verdict.mismatches;
+
+        if (verdict.shouldRegenerate) {
+          try {
+            const revised = await composeClientMessage({
+              report,
+              snapshot,
+              toneExamples,
+              toneProfile,
+              critiqueFeedback: verdict.mismatches,
+            });
+            activeMessage = revised.message;
+            voiceRegenerated = true;
+          } catch {
+            // Keep the first attempt when revision fails; surface in observability via voiceScore.
+          }
+        }
+      } catch {
+        // Grading failure should not block the run — accept the first attempt silently.
+      }
+
+      finalSlackMessage = activeMessage;
     } catch (error) {
       toneRewriteBlocked =
         error instanceof Error ? error.message : "Unknown compose error.";
@@ -171,6 +203,9 @@ export async function runReportingWorkflow(
         status: toneRewriteBlocked ? "fallback" : toneProfile ? "success" : "skipped",
         toneProfile,
         sampleCount: toneProfile?.sampleCount ?? 0,
+        voiceScore,
+        voiceRegenerated,
+        voiceMismatches,
       },
       {
         step: "slack-delivery",
@@ -215,6 +250,9 @@ export async function runReportingWorkflow(
     finalSlackMessage,
     toneProfile,
     toneRewriteBlocked,
+    voiceScore,
+    voiceMismatches,
+    voiceRegenerated,
     slackDelivery,
     slackDeliveryBlocked,
   };

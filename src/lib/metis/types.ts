@@ -156,6 +156,9 @@ export type ReportingRunResponse = {
   finalSlackMessage: string;
   toneProfile: ToneProfile | null;
   toneRewriteBlocked: string | null;
+  voiceScore: number | null;
+  voiceMismatches: string[];
+  voiceRegenerated: boolean;
   slackDelivery:
     | {
         status: number;
@@ -163,6 +166,12 @@ export type ReportingRunResponse = {
       }
     | null;
   slackDeliveryBlocked?: string | null;
+};
+
+export type VoiceMatchVerdict = {
+  score: number;
+  mismatches: string[];
+  shouldRegenerate: boolean;
 };
 
 export type BuilderPreviewRequest = {
