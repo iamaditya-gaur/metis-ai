@@ -9,8 +9,24 @@ import {
 import { getAccountInsights, normalizeAdAccountId } from "../../../scripts/pocs/lib/meta-client.mjs";
 import { writeStructuredRunLog } from "../../../scripts/pocs/lib/observability.mjs";
 
-import { buildToneProfile, rewriteClientMessageTone } from "@/lib/metis/tone";
+import { persistRunToSupabase } from "@/lib/metis/observability/supabase";
+import {
+  buildToneProfile,
+  rewriteClientMessageTone,
+  type OpenRouterUsage,
+} from "@/lib/metis/tone";
 import type { ReportingRunRequest, ReportingRunResponse } from "@/lib/metis/types";
+
+type LlmCallRecord = {
+  step:
+    | "report-summary"
+    | "tone-profile"
+    | "tone-rewrite";
+  model: string | null;
+  status: "success" | "skipped" | "error";
+  errorMessage: string | null;
+  usage: OpenRouterUsage | null;
+};
 
 const postSlackMessageUnsafe = postSlackMessage as (args: {
   text: string;
@@ -96,27 +112,93 @@ export async function runReportingWorkflow(
     accessToken: input.accessToken ?? null,
   });
 
+  const llmCalls: LlmCallRecord[] = [];
+
   const promptInput = buildReportPromptInput({ accountId, rows, dateRange });
-  const { model, report } = await generateOpenRouterReportSummary(promptInput);
+  const reportSummaryResult = await generateOpenRouterReportSummary(promptInput);
+  const { model, report } = reportSummaryResult;
+  const reportSummaryUsage =
+    (reportSummaryResult.usage as OpenRouterUsage | undefined) ?? null;
+  llmCalls.push({
+    step: "report-summary",
+    model,
+    status: "success",
+    errorMessage: null,
+    usage: reportSummaryUsage,
+  });
+
   const toneExamples = input.toneExamples.trim();
   const snapshot = buildInsightsSnapshot(rows, dateRange);
-  const toneProfile = toneExamples ? await buildToneProfile(toneExamples) : null;
+
+  let toneProfile: ReportingRunResponse["toneProfile"] = null;
+  if (toneExamples) {
+    const toneProfileResult = await buildToneProfile(toneExamples);
+    toneProfile = toneProfileResult.profile;
+    llmCalls.push({
+      step: "tone-profile",
+      model: toneProfileResult.model,
+      status: toneProfileResult.model ? "success" : "skipped",
+      errorMessage: null,
+      usage: toneProfileResult.usage,
+    });
+  }
+
   let finalSlackMessage = report.slackMessage;
   let toneRewriteBlocked: string | null = null;
+  let toneRewriteModel: string | null = null;
+  let toneRewriteUsage: OpenRouterUsage | null = null;
 
   if (toneExamples && toneProfile) {
     try {
-      finalSlackMessage = await rewriteClientMessageTone({
+      const rewriteResult = await rewriteClientMessageTone({
         report,
         snapshot,
         toneExamples,
         toneProfile,
       });
+      finalSlackMessage = rewriteResult.message;
+      toneRewriteModel = rewriteResult.model;
+      toneRewriteUsage = rewriteResult.usage;
+      llmCalls.push({
+        step: "tone-rewrite",
+        model: rewriteResult.model,
+        status: "success",
+        errorMessage: null,
+        usage: rewriteResult.usage,
+      });
     } catch (error) {
       toneRewriteBlocked =
         error instanceof Error ? error.message : "Unknown tone rewrite error.";
+      llmCalls.push({
+        step: "tone-rewrite",
+        model: null,
+        status: "error",
+        errorMessage: toneRewriteBlocked,
+        usage: null,
+      });
     }
   }
+
+  const totalPromptTokens = llmCalls.reduce(
+    (sum, call) => sum + (call.usage?.promptTokens ?? 0),
+    0,
+  );
+  const totalCompletionTokens = llmCalls.reduce(
+    (sum, call) => sum + (call.usage?.completionTokens ?? 0),
+    0,
+  );
+  const totalTokens = llmCalls.reduce(
+    (sum, call) => sum + (call.usage?.totalTokens ?? 0),
+    0,
+  );
+  const totalCostUsd = llmCalls.reduce(
+    (sum, call) => sum + (call.usage?.costUsd ?? 0),
+    0,
+  );
+  const totalLatencyMs = llmCalls.reduce(
+    (sum, call) => sum + (call.usage?.latencyMs ?? 0),
+    0,
+  );
 
   const finalReport = {
     ...report,
@@ -145,7 +227,7 @@ export async function runReportingWorkflow(
   const finishedAt = new Date().toISOString();
   const runId = `reporting-${randomUUID()}`;
 
-  await writeStructuredRunLog({
+  const runLogPayload = {
     runId,
     flowType: "reporting",
     status: "success",
@@ -154,6 +236,14 @@ export async function runReportingWorkflow(
     summary: report.executiveSummary,
     startedAt,
     finishedAt,
+    llmCalls,
+    totals: {
+      promptTokens: totalPromptTokens || null,
+      completionTokens: totalCompletionTokens || null,
+      totalTokens: totalTokens || null,
+      costUsd: totalCostUsd || null,
+      latencyMs: totalLatencyMs || null,
+    },
     agentSteps: [
       {
         step: "meta-insights",
@@ -164,12 +254,16 @@ export async function runReportingWorkflow(
         step: "report-summary",
         status: "success",
         model,
+        usage: reportSummaryUsage,
       },
       {
         step: "tone-rewrite",
         status: toneRewriteBlocked ? "fallback" : toneProfile ? "success" : "skipped",
         toneProfile,
         sampleCount: toneProfile?.sampleCount ?? 0,
+        model: toneRewriteModel,
+        usage: toneRewriteUsage,
+        errorMessage: toneRewriteBlocked,
       },
       {
         step: "slack-delivery",
@@ -204,7 +298,14 @@ export async function runReportingWorkflow(
         report: finalReport,
       },
     ],
-  });
+  };
+
+  // Dual sink: legacy JSONL (local dev) + Supabase (durable, queryable).
+  // Both are non-blocking — a sink failure must never break a user-facing run.
+  await Promise.allSettled([
+    writeStructuredRunLog(runLogPayload),
+    persistRunToSupabase(runLogPayload),
+  ]);
 
   return {
     runId,

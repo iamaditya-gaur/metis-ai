@@ -553,16 +553,40 @@ export function deriveToneProfile(toneExamples: string): ToneProfile {
   };
 }
 
-export async function buildToneProfile(toneExamples: string): Promise<ToneProfile> {
+export type OpenRouterUsage = {
+  promptTokens: number | null;
+  completionTokens: number | null;
+  totalTokens: number | null;
+  costUsd: number | null;
+  latencyMs: number | null;
+  attempts: Array<{
+    model: string;
+    status: "success" | "http_error" | "empty_message" | "invalid_json";
+    httpStatus: number | null;
+    latencyMs: number;
+    errorMessage: string | null;
+  }>;
+  attemptedModels: string[];
+};
+
+type RequestOpenRouterJsonResult = {
+  model: string;
+  data: unknown;
+  usage: OpenRouterUsage;
+};
+
+export async function buildToneProfile(
+  toneExamples: string,
+): Promise<{ profile: ToneProfile; model: string | null; usage: OpenRouterUsage | null }> {
   const heuristicProfile = deriveToneProfile(toneExamples);
   const samples = splitToneExamples(toneExamples);
 
   if (!samples.length) {
-    return heuristicProfile;
+    return { profile: heuristicProfile, model: null, usage: null };
   }
 
   try {
-    const result = await requestOpenRouterJson({
+    const result = (await requestOpenRouterJson({
       systemPrompt:
         "You analyze client-facing reporting messages for Metis AI. Return valid JSON only with keys sampleCount, brevity, perspective, openingStyle, structureStyle, metricStyle, recommendationStyle, confidence, targetWordCount, wordRange, numericStyle, commonPhrases. Focus on writing style only. numericStyle must include currencyDecimalPlaces, percentDecimalPlaces, plainNumberDecimalPlaces, and useThousandsSeparators.",
       userPayload: {
@@ -591,11 +615,15 @@ export async function buildToneProfile(toneExamples: string): Promise<ToneProfil
       },
       models: getCommunicatorModelCandidates(),
       temperature: getCommunicatorTemperature(),
-    });
+    })) as RequestOpenRouterJsonResult;
 
-    return validateToneProfile(result.data, heuristicProfile);
+    return {
+      profile: validateToneProfile(result.data, heuristicProfile),
+      model: result.model,
+      usage: result.usage,
+    };
   } catch {
-    return heuristicProfile;
+    return { profile: heuristicProfile, model: null, usage: null };
   }
 }
 
@@ -609,9 +637,9 @@ export async function rewriteClientMessageTone({
   snapshot: SnapshotForToneRewrite;
   toneExamples: string;
   toneProfile: ToneProfile;
-}) {
+}): Promise<{ message: string; model: string; usage: OpenRouterUsage }> {
   const samples = splitToneExamples(toneExamples);
-  const result = await requestOpenRouterJson({
+  const result = (await requestOpenRouterJson({
     systemPrompt:
       "You are the Client Communicator step for Metis AI. Return valid JSON only with key clientMessage. Write a client-facing reporting update that closely matches the supplied examples in length, numeric formatting, pacing, paragraph shape, and phrasing style while preserving the exact facts from the factual input. Never invent metrics, never add extra decimal precision, and never emit reformatted numbers when a formatted metric string is already supplied.",
     userPayload: {
@@ -629,15 +657,17 @@ export async function rewriteClientMessageTone({
     },
     models: getCommunicatorModelCandidates(),
     temperature: getCommunicatorTemperature(),
-  });
+  })) as RequestOpenRouterJsonResult;
 
-  if (
-    !result.data ||
-    typeof result.data !== "object" ||
-    typeof result.data.clientMessage !== "string"
-  ) {
+  const data = result.data as { clientMessage?: unknown } | null;
+
+  if (!data || typeof data !== "object" || typeof data.clientMessage !== "string") {
     throw new Error("Tone rewrite response was missing clientMessage.");
   }
 
-  return normalizeMessageNumericFormatting(result.data.clientMessage.trim(), toneProfile);
+  return {
+    message: normalizeMessageNumericFormatting(data.clientMessage.trim(), toneProfile),
+    model: result.model,
+    usage: result.usage,
+  };
 }
