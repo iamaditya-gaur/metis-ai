@@ -31,4 +31,7 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: ["/admin/:path*"],
+  // node:crypto (HMAC, timingSafeEqual) is used in the admin gate.
+  // Default middleware runtime is Edge, which excludes Node modules.
+  runtime: "nodejs",
 };
