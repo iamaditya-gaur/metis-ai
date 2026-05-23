@@ -1,278 +1,152 @@
-# Metis AI 
+# Metis AI
 
-I built **Metis AI**, a standalone reporting tool for Meta Ads teams.
+Client-ready Meta Ads reporting in the operator's actual voice. Grounded in real performance data. Inspectable end-to-end.
 
-The product lives on the `/reporting` route and does one job well:
+**On my own client work, this automated roughly 45 minutes of weekly reporting and an hour of monthly reporting.**
 
-- pull real Meta Ads data
-- turn it into a factual performance summary
-- rewrite that summary so it sounds closer to how the operator already reports to clients or internal teams
-
-This is not meant to be a generic “AI writes reports” product.
-
-It is built around a more specific workflow problem:
-
-> media buyers and lean agencies do not struggle to see metrics inside Meta.  
-> they struggle to turn those metrics into a clean, usable, client-ready update fast.
-
-That is the workflow Metis is trying to replace.
+**Try it:** [metis-ai-nine.vercel.app/reporting](https://metis-ai-nine.vercel.app/reporting) — paste a Meta access token, pick an account, run a real report.
 
 ---
 
-## The problem
+## The Problem
 
-A reporting workflow usually breaks in one of two places:
+Media buyers and lean agencies don't struggle to see metrics inside Meta. They struggle to turn those metrics into a clean, client-ready update fast.
 
-- the report is factual, but stiff, generic, and not usable as-is
-- the report sounds human, but starts inventing tone, structure, or unsupported claims
+Most reporting tools break in one of two ways:
 
-Most teams still end up doing manual cleanup in Slack, docs, or WhatsApp before they send anything out.
+- The report is factually accurate, but stiff and generic. The operator still rewrites it manually before sending.
+- The report sounds human, but invents tone, structure, or claims the data doesn't actually support.
 
-Metis is built to close that gap.
+Either way, the operator ends up doing the cleanup in Slack, docs, or WhatsApp before anything goes out.
 
-It keeps the reporting grounded in real Meta performance data, but still tries to produce a final message that feels like it came from the actual operator.
-
----
-
-## How the product works
-
-The current product flow is:
-
-1. User opens `/reporting`
-2. User pastes a Meta access token
-3. Metis loads the ad accounts available for that session
-4. User selects:
-   - account
-   - date range
-   - optional historical reporting context
-5. Historical context can be added in two ways:
-   - paste old client/team updates
-   - upload `.txt` or `.md` files with past reporting examples
-6. Metis runs the reporting workflow
-7. User gets back:
-   - core metrics
-   - factual operator summary
-   - client-style final message
-8. User can copy the final message directly from the client view
+**Reporting isn't finished when the numbers are correct. It's finished when the update is ready to send.** That last mile is the work Metis is built to automate.
 
 ---
 
-## What happens behind the scenes
+## What It Does
 
-The system runs as a multi-step workflow:
+Open `/reporting`. Paste a Meta access token. Pick an ad account and date range. Optionally upload one or more past client messages (`.txt` / `.md`) — these become the tone context.
 
-### 1. Meta data pull
+In about 10 seconds you get back:
 
-Metis fetches real campaign-level insights from Meta for the selected account and reporting window.
+- **Operator view** — factual breakdown: spend, key metric movements, what changed, risks, suggested next actions.
+- **Client message** — the same content rewritten to sound like the author of your uploaded examples. Matches their sentence rhythm, opener style, numeric formatting, which metrics they typically mention, and whether they typically reference campaign changes made during the period.
 
-### 2. Snapshot building
-
-It converts raw insight rows into a structured reporting snapshot, including:
-
-- spend
-- CTR
-- CPM
-- CPC
-- cost per result
-- top actions
-- top campaigns
-- data quality notes
-
-### 3. Factual reporting step
-
-That snapshot is sent into the reporting layer, which generates:
-
-- executive summary
-- what changed
-- risks
-- next actions
-- a base Slack-ready message
-
-### 4. Tone profiling
-
-If the user provides past reporting examples, Metis analyzes those messages for:
-
-- voice
-- opener style
-- structure
-- numeric formatting
-- pacing
-- recommendation style
-
-### 5. Client-style rewrite
-
-The final message is then rewritten to match the operator’s historical style more closely, while staying locked to the factual reporting snapshot.
-
-### 6. Delivery + observability
-
-After the run:
-
-- the final message is shown in the UI
-- it can be copied directly from the client view
-- it is posted to Slack
-- the run is logged with steps, tool calls, and artifacts
+Copy the client message, or have it auto-posted to Slack if `SLACK_WEBHOOK_URL` is configured.
 
 ---
 
-## Why this fits the MaaS track
+## How It Works
 
-I’m positioning this as a **MaaS-style reporting function**, not as a chatbot.
+```
+[ Meta Ads API ]
+       │
+       ▼
+[ Insights snapshot ] ──────────────────┐
+       │                                │
+       ▼                                │
+[ Factual report ] ── LLM 1             │
+       │                                │ run log
+       ▼                                │ (every
+[ Tone profile from examples ] ── LLM 2 │  LLM call,
+       │                                │  prompts,
+       ▼                                │  response,
+[ Client-style rewrite ] ── LLM 3       │  tokens,
+       │                                │  cost,
+       ▼                                │  latency)
+[ Optional Slack delivery ]             │
+                                        ▼
+                              [ Supabase metis_runs ]
+                                        │
+                                        ▼
+                          [ Admin observability UI ]
+                              /admin/runs (gated)
+```
 
-The key idea is:
+Three things make this more than a prompt wrapper:
 
-**Metis acts like a reporting employee for a Meta Ads team.**
+1. **Tone adaptation is grounded, not creative.** A tone profile is extracted from the user's examples (greeting style, sentence rhythm, which metrics they mention, whether they reference campaign changes). The compose step writes only from facts in the Meta snapshot, formatted in the user's numeric idiom, mentioning only the metrics that appear in their voice signature.
 
-Instead of just answering questions, it performs a real workflow:
+2. **A judge LLM grades voice match.** If the first draft scores below threshold, one regeneration runs with the specific mismatches as feedback. Cost-gated — the happy path is one cheap judge call per run, not unconditional retries.
 
-- reads live data
-- interprets it
-- adapts output to communication style
-- produces a deliverable
-- logs the full run
-
-That makes this closer to an agent-powered reporting function than a prompt wrapper.
-
----
-
-## Where the product is strong against the rubric
-
-### Working product shipping real output
-
-This is the strongest part of the project.
-
-- It uses real Meta Ads data
-- It produces real reporting output
-- It posts the final output to Slack
-- It gives the user a usable final message immediately
-
-This is not a fake demo flow. It is tied to real inputs and a real delivery surface.
-
-### Observability
-
-The project already has a usable observability layer:
-
-- structured run logs
-- run summaries
-- run detail views
-- agent step history
-- tool calls
-- output artifacts
-
-That means the workflow is inspectable, not opaque.
-
-### Evaluation
-
-There is also a reporting eval layer already in the repo.
-
-The evals check the things that matter most for this product:
-
-- factual grounding
-- no invented trends
-- tone-context adherence
-- message structure fit
-- client-safe reporting output
-
-That matters because the biggest failure mode here is not “bad grammar.”  
-It is drifting away from how a real operator reports.
-
-### Usable operator interface
-
-The standalone `/reporting` surface is now much more operator-friendly:
-
-- token-based session flow
-- clear waiting states
-- context input via paste or file upload
-- copy action on the final message
-
-So the product is not just technically working. It is becoming easier to operate.
+3. **Every LLM call is captured durably.** Model picked (including fallback chain), system prompt, user message, raw response, tokens, cost, latency. Persisted to Supabase, viewable as a trace tree at `/admin/runs`. Debugging "why did the model produce *this*" stays possible weeks after the run.
 
 ---
 
-## Where the product is still weaker against the rubric
+## Decisions and Tradeoffs
 
-This is not yet a top-end MaaS system.
+The product calls behind the code:
 
-The biggest gaps right now are:
+**Soft preference for metric selection, not a hard filter.** When the tone profile shows the user typically mentions spend and results, the compose model gets `<METRICS_PRIMARY>` (those) and `<METRICS_OPTIONAL>` (everything else: impressions, CPC, reach, frequency). The model uses primary freely and reaches into optional only when the narrative requires it. A hard filter would strip facts the user occasionally *does* need to reference. Soft preference plus a density target ("don't exceed the user's typical metric count by more than one") keeps the rhythm honest without losing the safety net.
 
-### Agent org structure
+**Cost-gated critique loop instead of always-regenerate.** A naive build regenerates on every run. That doubles cost. The judge LLM is a small cheap model that scores the first draft 0–10; only a score below 7 triggers a regen. Worst case is 2× tone latency; happy path is one extra small judge call. The judge's mismatch list is captured, so the threshold can be tuned from real data later.
 
-The workflow has multiple specialist stages, but it is still a fixed pipeline.
+**Direct fetch to OpenRouter, not a proxy gateway.** Most LLM observability platforms ship as proxies you route through. That adds latency and creates migration friction. Instead the OpenRouter call stays direct, and I capture the usage block from the response inline. Same data, no third-party hop. The data goes to my own Postgres table — if I outgrow this surface I can layer a vendor in; if the vendor disappears I keep my data.
 
-It does **not** yet have:
+**In-app observability before adopting a vendor.** I evaluated Langfuse, Helicone, Phoenix, LangSmith, and Braintrust. Each solves the polished-UI problem but adds vendor risk and free-tier ceilings. I built `/admin/runs` myself first — half a day of work, zero lock-in, every signal I'd want from a vendor. If after a few weeks of using it I find myself wishing for cross-run search or shareable links, that's the signal to add Langfuse as a second sink. Not before.
 
-- a visible manager agent
-- dynamic delegation
-- on-the-fly spawning of sub-specialists
+**Admin gate now, user auth later.** The trace inspection surface is locked behind a password and a signed-cookie middleware. The user-facing reporting route stays open because the model needs a user-supplied Meta token anyway, so there's no leak surface there. The auth helper is abstracted into a single function — swapping it to Supabase Auth plus an admin allowlist won't require middleware, routes, or UI changes.
 
-### Memory
-
-The system uses within-run context well, but it does not yet have strong persistent memory across:
-
-- clients
-- projects
-- prior runs
-- reusable reporting preferences
-
-### Management UI
-
-The UI is strong as an operator workflow, but it is not yet a full agent-management surface.
-
-A non-technical user cannot yet:
-
-- define a new role
-- change agent responsibilities
-- manage guardrails in a dedicated control layer
-
-### Evaluation loop maturity
-
-There is an eval set, but it is not yet a full closed-loop system with CI-style gating and automatic regression enforcement.
+**The shared-database risk is acknowledged, not solved.** Preview deployments currently share the production Supabase project. Documented honestly in [`docs/handoff/supabase-branching.md`](docs/handoff/supabase-branching.md) as the next priority, with a concrete playbook. Branching is the proper fix, and it's the next thing I'm picking up.
 
 ---
 
-## My honest scoring posture right now
+## Recently Shipped
 
-If I submitted this today for the **MaaS** rubric, I would describe it like this:
+- **Phase 1 + 2 — Tone fidelity.** Rebuilt the voice prompt from scratch. Examples now passed as labeled exemplars instead of bare JSON. Voice extracted from up to 8 samples. Judge LLM grades each draft and triggers a regen only when below threshold. Content vocabulary extracted to filter metric selection. Meta `/activities` endpoint integrated so campaign changes the user actually made during the period can be woven in. ([PR #1](https://github.com/iamaditya-gaur/metis-ai/pull/1) — separate review track)
 
-- strong on **real output**
-- credible on **observability**
-- credible on **evaluation**
-- early but promising on **agent structure**
-- still underbuilt on **management UI** and **persistent memory**
-
-So this is a **real submission**, not a concept piece.
-
-But it is also not pretending to be more than it is.
-
-The current version is best understood as:
-
-> a working agentic reporting function for Meta Ads teams, with real output, tone adaptation, and run-level observability already in place
-
-That is the sharpest and most honest framing.
+- **Phase 3 + 4 — Observability.** Captured per-LLM-call tokens, cost, latency, fallback chain, raw prompts and responses. Persisted to Supabase, replacing the prior `/tmp/.jsonl` writes that were getting wiped between Vercel cold starts. Built `/admin/runs` (filtered list) and `/admin/runs/[runId]` (full trace tree) with a signed-cookie admin gate. ([PR #2](https://github.com/iamaditya-gaur/metis-ai/pull/2), [PR #3](https://github.com/iamaditya-gaur/metis-ai/pull/3))
 
 ---
 
-## Final positioning
+## Known Limits
 
-Metis AI is built around a simple but important belief:
+Honest about the current state:
 
-**reporting is not finished when the numbers are correct.**  
-It is finished when the update is ready to send.
+- **No persistent memory across runs.** Within-run context works well. The system doesn't yet learn "this client prefers X" or "this account always uses Y reporting cadence."
+- **No user authentication.** Designed-for, not built-yet. The admin gate is the first auth surface; user auth comes after Supabase Branching closes the data-isolation gap first.
+- **Voice judge threshold is hand-tuned.** Default is 7/10 for triggering a regen. With more runs I'd train this from outcomes instead of guessing.
+- **No eval CI yet.** A reporting eval script exists; it isn't wired into the merge flow.
+- **Builder mode is minimal.** The other surface (`/builder` for paused-draft campaign creation) is functional but less polished than the reporting flow — reporting got the recent investment.
 
-That last mile is where a lot of reporting work still stays manual.
+---
 
-This product is my attempt to automate that layer properly:
+## What's Next
 
-- first with factual grounding
-- then with operator-style adaptation
-- then with real delivery and observability
+In priority order:
 
-If I continue building this, the next step is not adding more generic AI surface area.
+1. **Supabase Branching** — close the shared-DB risk before doing anything multi-user. [Handoff doc ready](docs/handoff/supabase-branching.md).
+2. **User authentication** — Supabase Auth plus an admin allowlist. The admin-gate helper is already abstracted for this swap (`src/lib/auth/admin-gate.ts`).
+3. **Per-account persistent memory** — store voice profile and recurring preferences per Meta account, so the operator doesn't re-upload examples every cycle.
+4. **Reporting eval loop in CI** — gate merges on regression checks against canned `(snapshot, examples)` pairs.
+5. **Polish the builder flow** to match the reporting one.
 
-The next step is deepening the reporting function:
+---
 
-- stronger memory
-- stronger agent management
-- stronger eval loops
-- stronger production readiness
+## Tech Stack
 
-That is the direction I would take this from here.
+Next.js 16 / TypeScript / Tailwind on Vercel. OpenRouter as the LLM gateway with multi-model fallback (Claude Sonnet → GPT-5 family). Supabase Postgres for run persistence. Meta Graph API v25 for ad insights and change history. Slack webhook for delivery.
+
+No vector DB. No LangChain. No MCP runtime. No agent framework. Just a deterministic pipeline of small, tight LLM calls each given a focused job. Easier to reason about, debug, and improve than a generic agent loop.
+
+---
+
+## Code Worth Reading
+
+If you want to see how the interesting bits work:
+
+- [`src/lib/metis/tone.ts`](src/lib/metis/tone.ts) — tone profile extraction, voice compose, judge LLM, content vocabulary, raw-prompt capture.
+- [`src/lib/metis/reporting.ts`](src/lib/metis/reporting.ts) — the workflow orchestration.
+- [`src/lib/observability/queries.ts`](src/lib/observability/queries.ts) — durable run data, filter-aware queries.
+- [`src/components/observability/trace-tree.tsx`](src/components/observability/trace-tree.tsx) — the admin trace UI.
+- [`src/lib/auth/admin-gate.ts`](src/lib/auth/admin-gate.ts) — HMAC-signed cookie auth, swappable to Supabase Auth without UI changes.
+
+Deeper context lives in [`docs/reporting-context.md`](docs/reporting-context.md) and the [handoff docs](docs/handoff/).
+
+---
+
+## Context
+
+Originally built as a submission to the **GrowthX AI Buildathon (MaaS track)**. The rubric pushed me to think rigorously about agent structure, observability, evals, and management UI — full posture-against-rubric notes in [`docs/maas-context.md`](docs/maas-context.md).
+
+If you're a builder, hiring manager, or fellow PM and want to talk through the decisions, the things that didn't work the first time, or what I'd change about the architecture today — reach me via the GitHub profile.
