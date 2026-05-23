@@ -334,6 +334,9 @@ export async function generateOpenRouterReportSummary(promptInput) {
   const num = (value) =>
     typeof value === "number" && Number.isFinite(value) ? value : null;
 
+  const systemPrompt =
+    "You are the Reporting Analyst Agent for Metis AI. Use OpenRouter as the LLM gateway. Return valid JSON only with keys executiveSummary, whatChanged, risks, nextActions, slackMessage. Never invent metrics, never expose secrets, and keep the Slack message concise.";
+
   return {
     model,
     report: validateGeneratedReport(parsed),
@@ -356,6 +359,11 @@ export async function generateOpenRouterReportSummary(promptInput) {
         },
       ],
       attemptedModels: [model],
+    },
+    prompts: {
+      systemPrompt,
+      userMessage: JSON.stringify(promptInput),
+      responseRaw: message,
     },
   };
 }

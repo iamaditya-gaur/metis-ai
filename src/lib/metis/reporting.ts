@@ -13,6 +13,7 @@ import { persistRunToSupabase } from "@/lib/metis/observability/supabase";
 import {
   buildToneProfile,
   rewriteClientMessageTone,
+  type OpenRouterPrompts,
   type OpenRouterUsage,
 } from "@/lib/metis/tone";
 import type { ReportingRunRequest, ReportingRunResponse } from "@/lib/metis/types";
@@ -26,6 +27,7 @@ type LlmCallRecord = {
   status: "success" | "skipped" | "error";
   errorMessage: string | null;
   usage: OpenRouterUsage | null;
+  prompts: OpenRouterPrompts | null;
 };
 
 const postSlackMessageUnsafe = postSlackMessage as (args: {
@@ -119,12 +121,15 @@ export async function runReportingWorkflow(
   const { model, report } = reportSummaryResult;
   const reportSummaryUsage =
     (reportSummaryResult.usage as OpenRouterUsage | undefined) ?? null;
+  const reportSummaryPrompts =
+    (reportSummaryResult.prompts as OpenRouterPrompts | undefined) ?? null;
   llmCalls.push({
     step: "report-summary",
     model,
     status: "success",
     errorMessage: null,
     usage: reportSummaryUsage,
+    prompts: reportSummaryPrompts,
   });
 
   const toneExamples = input.toneExamples.trim();
@@ -140,6 +145,7 @@ export async function runReportingWorkflow(
       status: toneProfileResult.model ? "success" : "skipped",
       errorMessage: null,
       usage: toneProfileResult.usage,
+      prompts: toneProfileResult.prompts,
     });
   }
 
@@ -165,6 +171,7 @@ export async function runReportingWorkflow(
         status: "success",
         errorMessage: null,
         usage: rewriteResult.usage,
+        prompts: rewriteResult.prompts,
       });
     } catch (error) {
       toneRewriteBlocked =
@@ -175,6 +182,7 @@ export async function runReportingWorkflow(
         status: "error",
         errorMessage: toneRewriteBlocked,
         usage: null,
+        prompts: null,
       });
     }
   }

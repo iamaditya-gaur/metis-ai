@@ -173,6 +173,11 @@ export async function requestOpenRouterJson({
           attempts,
           attemptedModels: attempts.map((entry) => entry.model),
         },
+        prompts: {
+          systemPrompt,
+          userMessage: JSON.stringify(userPayload),
+          responseRaw: message,
+        },
       };
     } catch {
       attempts.push({

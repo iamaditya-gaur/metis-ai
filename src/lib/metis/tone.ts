@@ -569,20 +569,32 @@ export type OpenRouterUsage = {
   attemptedModels: string[];
 };
 
+export type OpenRouterPrompts = {
+  systemPrompt: string;
+  userMessage: string;
+  responseRaw: string;
+};
+
 type RequestOpenRouterJsonResult = {
   model: string;
   data: unknown;
   usage: OpenRouterUsage;
+  prompts: OpenRouterPrompts;
 };
 
 export async function buildToneProfile(
   toneExamples: string,
-): Promise<{ profile: ToneProfile; model: string | null; usage: OpenRouterUsage | null }> {
+): Promise<{
+  profile: ToneProfile;
+  model: string | null;
+  usage: OpenRouterUsage | null;
+  prompts: OpenRouterPrompts | null;
+}> {
   const heuristicProfile = deriveToneProfile(toneExamples);
   const samples = splitToneExamples(toneExamples);
 
   if (!samples.length) {
-    return { profile: heuristicProfile, model: null, usage: null };
+    return { profile: heuristicProfile, model: null, usage: null, prompts: null };
   }
 
   try {
@@ -621,9 +633,10 @@ export async function buildToneProfile(
       profile: validateToneProfile(result.data, heuristicProfile),
       model: result.model,
       usage: result.usage,
+      prompts: result.prompts,
     };
   } catch {
-    return { profile: heuristicProfile, model: null, usage: null };
+    return { profile: heuristicProfile, model: null, usage: null, prompts: null };
   }
 }
 
@@ -637,7 +650,12 @@ export async function rewriteClientMessageTone({
   snapshot: SnapshotForToneRewrite;
   toneExamples: string;
   toneProfile: ToneProfile;
-}): Promise<{ message: string; model: string; usage: OpenRouterUsage }> {
+}): Promise<{
+  message: string;
+  model: string;
+  usage: OpenRouterUsage;
+  prompts: OpenRouterPrompts;
+}> {
   const samples = splitToneExamples(toneExamples);
   const result = (await requestOpenRouterJson({
     systemPrompt:
@@ -669,5 +687,6 @@ export async function rewriteClientMessageTone({
     message: normalizeMessageNumericFormatting(data.clientMessage.trim(), toneProfile),
     model: result.model,
     usage: result.usage,
+    prompts: result.prompts,
   };
 }
