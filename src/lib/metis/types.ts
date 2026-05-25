@@ -73,7 +73,12 @@ export type MetricToken =
   | "cpc"
   | "frequency"
   | "results"
-  | "costPerResult";
+  | "costPerResult"
+  | "roas"
+  | "aov"
+  | "purchaseValue"
+  | "linkClicks"
+  | "lpv";
 
 export type ContentVocabulary = {
   mentionedMetrics: MetricToken[];
@@ -156,7 +161,34 @@ export type ReportingRunResponse = {
         value: number | null;
         costPerResult: number | null;
       } | null;
+      // Sales-objective extras. Populated when Meta returns action_values
+      // for the `purchase` action_type (or `omni_purchase` for cross-device).
+      // null when no purchase data is available (e.g. lead-gen, awareness
+      // campaigns). Computed at the snapshot level, not per-campaign.
+      roas?: number | null;
+      aov?: number | null;
+      purchaseValue?: number | null;
+      // Subset of `clicks` that are link clicks (distinct from all-clicks
+      // which includes engagement-only clicks). Helpful for traffic
+      // objective reports. Pulled from `actions.link_click`.
+      linkClicks?: number | null;
+      // Landing page views — the post-click step. Pulled from
+      // `actions.landing_page_view`. Often the metric clients ask about
+      // for traffic / conversion funnel reports.
+      lpv?: number | null;
     };
+    // Aggregate objective inferred across the top campaigns by spend share.
+    // Used by the deterministic metric-selection module to decide which
+    // metrics belong in the LLM's PRIMARY block. Optional so older
+    // snapshots stay valid.
+    dominantObjective?:
+      | "OUTCOME_SALES"
+      | "OUTCOME_LEADS"
+      | "OUTCOME_TRAFFIC"
+      | "OUTCOME_AWARENESS"
+      | "OUTCOME_ENGAGEMENT"
+      | "OUTCOME_APP_PROMOTION"
+      | "UNKNOWN";
     topActions: Array<{
       actionType: string;
       label: string;

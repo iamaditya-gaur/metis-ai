@@ -194,6 +194,16 @@ export async function runReportingWorkflow(
   let metaActivities: MetaActivitySummary | null = null;
   let changesSummary: string | null = null;
   let canonicalActivities: CanonicalActivity[] = [];
+  // Visible diagnostic for /admin/runs — explains why regen did or didn't
+  // fire. When a future failure mode shows "voiceScore=6 but no regen",
+  // this object surfaces the exact inputs the decision was made on.
+  let regenDecision: {
+    voiceShouldRegenerate: boolean;
+    factShouldRegenerate: boolean;
+    deterministicViolations: number;
+    combinedCritiqueLength: number;
+    regenAttempted: boolean;
+  } | null = null;
 
   if (toneProfile?.contentVocabulary.mentionsChanges) {
     try {
@@ -212,17 +222,30 @@ export async function runReportingWorkflow(
           note: activityResponse.error?.message ?? null,
         };
       } else {
-        const { summary: summaryText, canonical } = buildCanonicalActivities(
-          activityResponse.activities,
-        );
+        const {
+          summary: summaryText,
+          canonical,
+          systemActivitiesFiltered,
+          systemActivityNames,
+        } = buildCanonicalActivities(activityResponse.activities);
         changesSummary = summaryText || null;
         canonicalActivities = canonical;
+        // Build a short note operators can read in /admin/runs telling them
+        // how much automated noise we filtered out and what its names were.
+        // Caps the names at ~5 to keep the run-log row scannable.
+        const filteredNotePieces: string[] = [];
+        if (systemActivitiesFiltered > 0) {
+          const preview = systemActivityNames.slice(0, 5).join(", ");
+          filteredNotePieces.push(
+            `${systemActivitiesFiltered} automated event${systemActivitiesFiltered === 1 ? "" : "s"} filtered (${preview}${systemActivityNames.length > 5 ? ", …" : ""})`,
+          );
+        }
         metaActivities = {
           count: activityResponse.activities.length,
           summary: summaryText,
           permissionDenied: false,
           status: "success",
-          note: null,
+          note: filteredNotePieces.length ? filteredNotePieces.join(" · ") : null,
         };
       }
     } catch (error) {
@@ -410,6 +433,14 @@ export async function runReportingWorkflow(
         factShouldRegenerate ||
         deterministicCheck.violations.length > 0;
 
+      regenDecision = {
+        voiceShouldRegenerate,
+        factShouldRegenerate,
+        deterministicViolations: deterministicCheck.violations.length,
+        combinedCritiqueLength: combinedCritique.length,
+        regenAttempted: shouldRegenerate && combinedCritique.length > 0,
+      };
+
       if (shouldRegenerate && combinedCritique.length) {
         try {
           const revised = await composeClientMessage({
@@ -587,6 +618,7 @@ export async function runReportingWorkflow(
         factViolations,
         factCheckBlocked,
         changesUsed: Boolean(changesSummary),
+        regenDecision,
         model: toneRewriteModel,
         usage: toneRewriteUsage,
         errorMessage: toneRewriteBlocked,

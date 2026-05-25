@@ -1,5 +1,10 @@
 import { requestOpenRouterJson } from "../../../scripts/pocs/lib/llm.mjs";
 
+import {
+  selectPrimaryMetrics,
+  type MetaObjective,
+  type SnapshotTotals as SnapshotTotalsForSelection,
+} from "@/lib/metis/metric-selection";
 import type {
   ContentVocabulary,
   FactMatchVerdict,
@@ -153,19 +158,36 @@ const METRIC_PATTERNS: Array<{ pattern: RegExp; metric: MetricToken }> = [
   { pattern: /\b(spend|spent|spending|budget|budgets)\b/i, metric: "spend" },
   { pattern: /\bimpressions?\b/i, metric: "impressions" },
   { pattern: /\breach(es|ed)?\b/i, metric: "reach" },
-  { pattern: /\bclicks?\b/i, metric: "clicks" },
+  // Match "clicks" but NOT "link clicks" (handled by linkClicks below). The
+  // negative lookbehind on \blink\s+ keeps "link clicks" out of this bucket.
+  { pattern: /\b(?<!link\s)clicks?\b/i, metric: "clicks" },
   { pattern: /\b(ctr|click[\s-]through(?:\s+rate)?)\b/i, metric: "ctr" },
   { pattern: /\bcpm\b/i, metric: "cpm" },
   { pattern: /\b(cpc|cost\s+per\s+click)\b/i, metric: "cpc" },
   { pattern: /\bfrequency\b/i, metric: "frequency" },
+  // ROAS is its own metric, not lumped into "results". Operators report it
+  // separately because it's a ratio, not a count.
+  { pattern: /\b(roas|return\s+on\s+ad\s+spend)\b/i, metric: "roas" },
+  // AOV — average order value. Common in e-commerce reporting alongside ROAS.
+  { pattern: /\b(aov|average\s+order\s+value|order\s+value)\b/i, metric: "aov" },
+  // Purchase value / revenue / conversion value — the $ figure behind ROAS.
   {
     pattern:
-      /\b(results?|conversions?|purchases?|leads?|sign[\s-]?ups?|signups?|roas)\b/i,
+      /\b(purchase\s+value|conversion\s+value|revenue|sales\s+value|total\s+sales)\b/i,
+    metric: "purchaseValue",
+  },
+  // Link clicks — distinct from total clicks. Traffic objective lead metric.
+  { pattern: /\blink\s+clicks?\b/i, metric: "linkClicks" },
+  // Landing page views — post-click funnel step.
+  { pattern: /\b(lpv|landing\s+page\s+views?)\b/i, metric: "lpv" },
+  {
+    pattern:
+      /\b(results?|conversions?|purchases?|leads?|sign[\s-]?ups?|signups?|installs?)\b/i,
     metric: "results",
   },
   {
     pattern:
-      /\b(cost\s+per\s+(result|purchase|lead|action|signup|sign[\s-]?up|conversion)|cpp|cpa|cost\/result)\b/i,
+      /\b(cost\s+per\s+(result|purchase|lead|action|signup|sign[\s-]?up|conversion|install|acquisition)|cpp|cpa|cpl|cpi|cost\/result)\b/i,
     metric: "costPerResult",
   },
 ];
@@ -736,18 +758,98 @@ function buildMetricRows(
     );
   }
 
+  // Sales-objective extras. Only populated when the snapshot carries them
+  // (caller computes from purchase action_values). Each row is conditional
+  // so non-sales snapshots don't suddenly grow nulls.
+  const roasValue = formatStyleValue(
+    snapshot.totals.roas ?? null,
+    Math.max(numericStyle.currencyDecimalPlaces, 2),
+    numericStyle.useThousandsSeparators,
+    "plain",
+  );
+  push("roas", "ROAS", roasValue);
+
+  const aovValue = formatStyleValue(
+    snapshot.totals.aov ?? null,
+    numericStyle.currencyDecimalPlaces,
+    numericStyle.useThousandsSeparators,
+    "currency",
+  );
+  push("aov", "AOV", aovValue);
+
+  const purchaseValue = formatStyleValue(
+    snapshot.totals.purchaseValue ?? null,
+    numericStyle.currencyDecimalPlaces,
+    numericStyle.useThousandsSeparators,
+    "currency",
+  );
+  push("purchaseValue", "Purchase value", purchaseValue);
+
+  const linkClicksValue = formatStyleValue(
+    snapshot.totals.linkClicks ?? null,
+    0,
+    numericStyle.useThousandsSeparators,
+    "plain",
+  );
+  push("linkClicks", "Link clicks", linkClicksValue);
+
+  const lpvValue = formatStyleValue(
+    snapshot.totals.lpv ?? null,
+    0,
+    numericStyle.useThousandsSeparators,
+    "plain",
+  );
+  push("lpv", "Landing page views", lpvValue);
+
   return rows;
 }
 
-function partitionMetricRows(rows: MetricRow[], vocabulary: ContentVocabulary) {
-  const mentioned = new Set<MetricToken>(vocabulary.mentionedMetrics);
-  const primary: MetricRow[] = [];
-  const optional: MetricRow[] = [];
+/**
+ * Partitions metric rows into PRIMARY (what the LLM should lead with) and
+ * OPTIONAL (kept available but the LLM should only reach for them if the
+ * narrative requires it).
+ *
+ * Selection logic lives in src/lib/metis/metric-selection.ts. It merges:
+ *   - the user's tone-example vocabulary (operator knows best)
+ *   - codified media-buyer defaults per Meta campaign objective
+ *   - movement signals (e.g. frequency > 3 = saturation, surface it)
+ *
+ * The order returned by selectPrimaryMetrics matters — the renderer keeps
+ * that order in the prompt so the lead metric for the user's voice always
+ * shows up first.
+ */
+function partitionMetricRows(
+  rows: MetricRow[],
+  vocabulary: ContentVocabulary,
+  dominantObjective: MetaObjective,
+  totals: SnapshotTotalsForSelection,
+) {
+  const selected = selectPrimaryMetrics({
+    vocabulary,
+    dominantObjective,
+    totals,
+  });
+  const selectedSet = new Set<MetricToken>(selected as MetricToken[]);
 
+  const rowByToken = new Map<MetricToken, MetricRow>();
   for (const row of rows) {
-    if (mentioned.has(row.token)) {
+    rowByToken.set(row.token, row);
+  }
+
+  // PRIMARY rows are emitted in selection order, not insertion order from
+  // buildMetricRows. The lead metric the operator's voice expects shows up
+  // first this way.
+  const primary: MetricRow[] = [];
+  for (const token of selected as MetricToken[]) {
+    const row = rowByToken.get(token);
+    if (row) {
       primary.push(row);
-    } else {
+    }
+  }
+
+  const optional: MetricRow[] = [];
+  for (const row of rows) {
+    if (!selectedSet.has(row.token)) {
       optional.push(row);
     }
   }
@@ -801,6 +903,23 @@ export type ActivityField =
   | "NAME"
   | "OTHER";
 
+/**
+ * Three-tier actor model:
+ * - MANUAL: human user took an action via Meta UI/API. Message can use
+ *   first-person verbiage ("I bumped...").
+ * - RULE: a rule the user authored fired automatically. Message must use
+ *   impersonal verbiage ("budget on X was raised after a rule fired").
+ * - SYSTEM: platform/integration automated (Shopify audience refresh,
+ *   ASA auto-audience, Meta Advantage+ creative auto-variations, etc).
+ *   These are filtered out of CHANGES entirely — they're noise from the
+ *   reporting perspective.
+ *
+ * The classification is heuristic and deterministic (no LLM). It runs in
+ * deriveCanonicalActivity. Run logs include a `systemActivitiesFiltered`
+ * count and the dropped names so the operator can audit it.
+ */
+export type ActivityActorClass = "MANUAL" | "RULE" | "SYSTEM";
+
 export type CanonicalActivity = {
   date: string | null;
   objectName: string | null;
@@ -810,6 +929,8 @@ export type CanonicalActivity = {
   magnitudePercent: number | null;
   valueOld: string | null;
   valueNew: string | null;
+  actorClass: ActivityActorClass;
+  actorName: string | null;
 };
 
 function formatActivityValue(value: unknown): string | null {
@@ -840,6 +961,124 @@ function parseNumericLike(value: string | null): number | null {
   }
   const num = Number(cleaned);
   return Number.isFinite(num) ? num : null;
+}
+
+/**
+ * Names of objects that are managed by external systems / integrations
+ * and refresh on their own schedule. Edits on these are always noise.
+ * Matched case-insensitively against the activity's object name.
+ */
+const SYSTEM_OBJECT_NAME_PATTERNS: RegExp[] = [
+  // Meta Advantage+ Shopping Audience and other auto-built audiences
+  /^asa_auto/i,
+  /^asa_/i,
+  /^_default_/i,
+  /^lookalike\s+\(auto/i,
+  // Shopify integration auto-syncs customer / visitor audiences daily
+  /^shopify audiences\s*-/i,
+  // Klaviyo / Mailchimp / Zapier custom audience auto-resyncs
+  /^klaviyo\s+(audience|sync)/i,
+  /^mailchimp\s+sync/i,
+  // Common pattern for automated catalog audiences
+  /\(auto-?refresh/i,
+  /auto[\s_-]*custom[\s_-]*audience/i,
+];
+
+/**
+ * Actor names Meta sets when the change comes from the platform itself
+ * rather than a human user. Compared case-insensitively as substrings.
+ */
+const SYSTEM_ACTOR_NAME_PATTERNS: RegExp[] = [
+  /\bsystem\b/i,
+  /\bmeta\b/i,
+  /\bfacebook\b/i,
+  /\bshopify\b/i,
+  /\bpixel\b/i,
+  /\bcatalog sync\b/i,
+  /\baggregated event measurement\b/i,
+  /\baem\b/i,
+];
+
+/**
+ * Event types that are inherently automated — even when an actor_name
+ * appears, the change is platform-driven, not a real user reporting
+ * decision. Matched as substring against eventType + translatedEventType.
+ */
+const SYSTEM_EVENT_TYPE_PATTERNS: RegExp[] = [
+  /pixel[_\s]*event/i,
+  /optimization[_\s]*event/i,
+  /catalog[_\s]*sync/i,
+  /audience[_\s]*resync/i,
+  /\baem[_\s]/i,
+  /creative[_\s]*auto[_\s]*variation/i,
+  /advantage[_\s].*auto/i,
+  /custom[_\s]*conversion[_\s]*adjust/i,
+  /app[_\s]*event[_\s]*source/i,
+  /delivery[_\s]*system[_\s]*optimization/i,
+];
+
+/**
+ * Event types that indicate a rule the user authored fired (vs. a manual
+ * click in the UI). Matched as substring.
+ */
+const RULE_EVENT_TYPE_PATTERNS: RegExp[] = [
+  /automated[_\s]*rule/i,
+  /rule[_\s]*fired/i,
+  /\brule[_\s]+/i,
+];
+
+function isSystemObjectName(name: string | null | undefined): boolean {
+  if (!name) {
+    return false;
+  }
+  return SYSTEM_OBJECT_NAME_PATTERNS.some((pattern) => pattern.test(name));
+}
+
+function isSystemActorName(name: string | null | undefined): boolean {
+  if (!name) {
+    return false;
+  }
+  return SYSTEM_ACTOR_NAME_PATTERNS.some((pattern) => pattern.test(name));
+}
+
+function matchesAnyPattern(value: string, patterns: RegExp[]): boolean {
+  return patterns.some((pattern) => pattern.test(value));
+}
+
+/**
+ * Classifies an activity's actor source. Decision tree:
+ *
+ * 1. Event type matches a rule-fire pattern → RULE
+ *    (user authored the rule; the action is intentional but not manual)
+ * 2. Object name matches a known system-managed pattern → SYSTEM
+ *    (Shopify Audiences, asa_*, etc — always noise)
+ * 3. Actor name matches a system-actor pattern OR is empty/null → SYSTEM
+ *    (Meta logs platform-driven events with no human actor)
+ * 4. Event type matches a known automated event pattern → SYSTEM
+ * 5. Otherwise → MANUAL (a human user actor with a real edit)
+ */
+export function classifyActivityActor(
+  activity: ActivityRecord,
+): ActivityActorClass {
+  const eventTypeHaystack = `${activity.eventType ?? ""} ${activity.translatedEventType ?? ""}`;
+
+  if (matchesAnyPattern(eventTypeHaystack, RULE_EVENT_TYPE_PATTERNS)) {
+    return "RULE";
+  }
+
+  if (isSystemObjectName(activity.objectName)) {
+    return "SYSTEM";
+  }
+
+  if (isSystemActorName(activity.actorName) || !activity.actorName?.trim()) {
+    return "SYSTEM";
+  }
+
+  if (matchesAnyPattern(eventTypeHaystack, SYSTEM_EVENT_TYPE_PATTERNS)) {
+    return "SYSTEM";
+  }
+
+  return "MANUAL";
 }
 
 function classifyStatusDirection(
@@ -948,6 +1187,9 @@ export function deriveCanonicalActivity(
     return null;
   }
 
+  const actorClass = classifyActivityActor(activity);
+  const actorName = activity.actorName?.trim() ?? null;
+
   return {
     date,
     objectName,
@@ -957,6 +1199,8 @@ export function deriveCanonicalActivity(
     magnitudePercent,
     valueOld: oldValue,
     valueNew: newValue,
+    actorClass,
+    actorName,
   };
 }
 
@@ -985,49 +1229,155 @@ function formatCanonicalLine(activity: CanonicalActivity): string {
         : activity.valueOld
           ? ` | ${activity.valueOld} → (removed)`
           : "";
-  return `- ${datePart} | ${namePart} | ${activity.field} | ${activity.direction}${magnitudePart}${valuePart}`;
+  // ACTOR column tells the LLM whether first-person or impersonal verbiage
+  // is appropriate. SYSTEM rows never reach here (filtered upstream).
+  const actorPart = ` | ACTOR:${activity.actorClass}`;
+  return `- ${datePart} | ${namePart} | ${activity.field} | ${activity.direction}${magnitudePart}${actorPart}${valuePart}`;
+}
+
+/**
+ * Priority for truncation: higher number = more important to retain.
+ * The intent is that manual budget/status changes ALWAYS survive even
+ * when an account has dozens of automated audience refreshes piled up.
+ */
+function activityPriorityScore(activity: CanonicalActivity): number {
+  const tierBase =
+    activity.actorClass === "MANUAL" ? 1000 : activity.actorClass === "RULE" ? 500 : 0;
+
+  const fieldWeight: Record<ActivityField, number> = {
+    DAILY_BUDGET: 100,
+    LIFETIME_BUDGET: 100,
+    BID_AMOUNT: 90,
+    STATUS: 80,
+    CREATIVE: 60,
+    NAME: 40,
+    TARGETING: 30,
+    OTHER: 10,
+  };
+
+  return tierBase + (fieldWeight[activity.field] ?? 0);
+}
+
+/**
+ * Collapses near-duplicate rows. Two canonical activities collapse if
+ * they share (objectName, field, direction) and their dates are within
+ * 48h of each other. The kept row gets a "(edited Nx)" suffix on the
+ * object name to preserve the signal that this happened repeatedly.
+ *
+ * Why: Meta routinely fires multiple TARGETING edits per audience per
+ * day. Even when those slip through as MANUAL (rare), the LLM does not
+ * need 6 near-identical rows — one row with a count is more useful.
+ */
+function dedupeCanonicalActivities(
+  activities: CanonicalActivity[],
+): CanonicalActivity[] {
+  const buckets = new Map<string, CanonicalActivity[]>();
+  for (const activity of activities) {
+    const key = `${activity.objectName ?? "_"}::${activity.field}::${activity.direction}`;
+    const bucket = buckets.get(key);
+    if (bucket) {
+      bucket.push(activity);
+    } else {
+      buckets.set(key, [activity]);
+    }
+  }
+
+  const result: CanonicalActivity[] = [];
+  for (const bucket of buckets.values()) {
+    if (bucket.length === 1) {
+      result.push(bucket[0]);
+      continue;
+    }
+    // Sort by date desc, keep the newest as the representative.
+    bucket.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+    const head = bucket[0];
+    const count = bucket.length;
+    result.push({
+      ...head,
+      objectName: head.objectName
+        ? `${head.objectName} (edited ${count}x in window)`
+        : head.objectName,
+    });
+  }
+
+  return result;
 }
 
 /**
  * Returns the structured-string CHANGES block plus the canonical activity
  * list. The canonical list is reused by the deterministic fact-check so the
  * LLM-facing text and the post-check verifier share one source of truth.
+ *
+ * Pipeline:
+ *   1. Map every raw activity through deriveCanonicalActivity (which also
+ *      classifies actor as MANUAL / RULE / SYSTEM).
+ *   2. Drop SYSTEM rows unless METIS_INCLUDE_SYSTEM_ACTIVITIES env override
+ *      is set. Track the dropped names for observability.
+ *   3. Deduplicate near-identical rows (same object + field + direction).
+ *   4. Sort by priority (MANUAL > RULE; budget/status > targeting), then
+ *      date desc within tier.
+ *   5. Truncate to maxItems (default 20).
  */
 export function buildCanonicalActivities(
   activities: ActivityRecord[],
-  maxItems = 10,
-): { summary: string; canonical: CanonicalActivity[] } {
+  maxItems = 20,
+): {
+  summary: string;
+  canonical: CanonicalActivity[];
+  systemActivitiesFiltered: number;
+  systemActivityNames: string[];
+} {
   if (!activities.length) {
-    return { summary: "", canonical: [] };
+    return {
+      summary: "",
+      canonical: [],
+      systemActivitiesFiltered: 0,
+      systemActivityNames: [],
+    };
   }
 
-  const sorted = [...activities].sort((a, b) => {
-    const aTime = a.eventTime ?? "";
-    const bTime = b.eventTime ?? "";
-    return bTime.localeCompare(aTime);
+  const allDerived: CanonicalActivity[] = [];
+  for (const raw of activities) {
+    const derived = deriveCanonicalActivity(raw);
+    if (derived) {
+      allDerived.push(derived);
+    }
+  }
+
+  const includeSystem = (process.env.METIS_INCLUDE_SYSTEM_ACTIVITIES ?? "").trim() === "1";
+  const systemActivities = allDerived.filter((a) => a.actorClass === "SYSTEM");
+  const reportable = includeSystem
+    ? allDerived
+    : allDerived.filter((a) => a.actorClass !== "SYSTEM");
+
+  const deduped = dedupeCanonicalActivities(reportable);
+
+  deduped.sort((a, b) => {
+    const priorityDelta = activityPriorityScore(b) - activityPriorityScore(a);
+    if (priorityDelta !== 0) {
+      return priorityDelta;
+    }
+    return (b.date ?? "").localeCompare(a.date ?? "");
   });
 
-  const canonical: CanonicalActivity[] = [];
-  for (const activity of sorted) {
-    const derived = deriveCanonicalActivity(activity);
-    if (derived) {
-      canonical.push(derived);
-    }
-    if (canonical.length >= maxItems) {
-      break;
-    }
-  }
-
+  const canonical = deduped.slice(0, maxItems);
   const lines = canonical.map(formatCanonicalLine);
 
-  if (activities.length > canonical.length) {
-    const omitted = activities.length - canonical.length;
+  const omitted = deduped.length - canonical.length;
+  if (omitted > 0) {
     lines.push(
       `- (+ ${omitted} additional edit${omitted === 1 ? "" : "s"} omitted for brevity)`,
     );
   }
 
-  return { summary: lines.join("\n"), canonical };
+  return {
+    summary: lines.join("\n"),
+    canonical,
+    systemActivitiesFiltered: systemActivities.length,
+    systemActivityNames: systemActivities
+      .map((a) => a.objectName ?? "(unnamed)")
+      .slice(0, 20),
+  };
 }
 
 export function summarizeActivitiesForPrompt(
@@ -1160,7 +1510,7 @@ export async function buildToneProfile(
 }
 
 const COMPOSE_SYSTEM_PROMPT =
-  "You are writing a client-facing performance update as the same author who wrote the EXAMPLES below. Channel their voice: their sentence rhythm, vocabulary, idioms, signature phrases, paragraph shape, greetings, sign-offs, and quirks. The EXAMPLES are the gospel for HOW to write. The NARRATIVE_FACTS, METRICS_PRIMARY, METRICS_OPTIONAL, CAMPAIGNS, and CHANGES blocks are the gospel for WHAT to say — every metric and claim must come from these, never invented. METRICS_PRIMARY lists the metrics this author typically discusses; prefer those when you mention numbers. METRICS_OPTIONAL is available only if the narrative genuinely requires it — do not list those metrics for completeness; do not exceed the author's typical metric density by more than one. CAMPAIGNS may be referenced by name only if the EXAMPLES show this author naming campaigns. CHANGES (when present) describes campaign edits made during the period; weave only the relevant ones, in the way the EXAMPLES handle edits — never force a separate 'changes' section unless the EXAMPLES have one. CRITICAL: each CHANGES row carries an explicit DIRECTION label (INCREASED, DECREASED, PAUSED, RESUMED, CREATED, DELETED, EDITED). The verb you choose in your message MUST match that DIRECTION — never invert direction, never round 'DECREASED' up to 'tweaked', never paint a 'PAUSED' as a 'launched'. If DIRECTION is INCREASED, use raised/bumped/increased/scaled-up/boosted. If DECREASED, use lowered/cut/reduced/trimmed/scaled-down. If PAUSED, use paused/stopped/turned-off. If RESUMED, use resumed/restarted/turned-on. If you cannot honestly describe an action without misrepresenting its direction, omit that action entirely. When mentioning numbers, prefer the exact formatted strings supplied unless a clear pattern from the EXAMPLES dictates a different style for the same value. Your job is to write a fresh message that a long-time reader would assume the author wrote themselves. Return valid JSON only: {\"clientMessage\": \"...\"}.";
+  "You are writing a client-facing performance update as the same author who wrote the EXAMPLES below. Channel their voice: their sentence rhythm, vocabulary, idioms, signature phrases, paragraph shape, greetings, sign-offs, and quirks. The EXAMPLES are the gospel for HOW to write. The NARRATIVE_FACTS, METRICS_PRIMARY, METRICS_OPTIONAL, CAMPAIGNS, and CHANGES blocks are the gospel for WHAT to say — every metric and claim must come from these, never invented. METRICS_PRIMARY lists the metrics this author typically discusses; prefer those when you mention numbers. METRICS_OPTIONAL is available only if the narrative genuinely requires it — do not list those metrics for completeness; do not exceed the author's typical metric density by more than one. CAMPAIGNS may be referenced by name only if the EXAMPLES show this author naming campaigns. CHANGES (when present) describes campaign edits made during the period; weave only the relevant ones, in the way the EXAMPLES handle edits — never force a separate 'changes' section unless the EXAMPLES have one. CRITICAL — DIRECTION: each CHANGES row carries an explicit DIRECTION label (INCREASED, DECREASED, PAUSED, RESUMED, CREATED, DELETED, EDITED). The verb you choose MUST match that DIRECTION — never invert direction, never round 'DECREASED' up to 'tweaked', never paint a 'PAUSED' as a 'launched'. If INCREASED: raised/bumped/increased/scaled-up/boosted. If DECREASED: lowered/cut/reduced/trimmed/scaled-down. If PAUSED: paused/stopped/turned-off. If RESUMED: resumed/restarted/turned-on. If you cannot honestly describe an action without misrepresenting its direction, omit that action entirely. CRITICAL — ACTOR: each CHANGES row also carries an ACTOR label (ACTOR:MANUAL or ACTOR:RULE). For ACTOR:MANUAL rows you may use first-person verbiage ('I raised', 'I paused', etc.) because the user clicked this in Ads Manager. For ACTOR:RULE rows you MUST use impersonal/passive verbiage ('budget on X was raised', 'X was paused under the standing rule') — never claim 'I' did it, because a saved automated rule fired the change. Any CHANGES row you see HAS BEEN CLEANED — automated audience refreshes from Shopify, Klaviyo, Mailchimp, ASA / Advantage+ auto-audiences, pixel events, and other platform-managed background changes have already been filtered out and must NEVER be mentioned. If the CHANGES list is empty or all you have is fluff, do not invent campaign edits — write the update without change-talk. When mentioning numbers, prefer the exact formatted strings supplied unless a clear pattern from the EXAMPLES dictates a different style for the same value. Your job is to write a fresh message that a long-time reader would assume the author wrote themselves. Return valid JSON only: {\"clientMessage\": \"...\"}.";
 
 function buildNarrativeFactsBlock(
   snapshot: SnapshotForToneRewrite,
@@ -1187,7 +1537,14 @@ function buildMetricsBlocks(
   toneProfile: ToneProfile,
 ) {
   const rows = buildMetricRows(snapshot, toneProfile);
-  const { primary, optional } = partitionMetricRows(rows, toneProfile.contentVocabulary);
+  const dominantObjective: MetaObjective =
+    (snapshot.dominantObjective as MetaObjective | undefined) ?? "UNKNOWN";
+  const { primary, optional } = partitionMetricRows(
+    rows,
+    toneProfile.contentVocabulary,
+    dominantObjective,
+    snapshot.totals,
+  );
   const vocabulary = toneProfile.contentVocabulary;
 
   const densityHint = vocabulary.averageMetricCount > 0
@@ -1303,10 +1660,18 @@ ${critiqueFeedback.map((item) => `- ${item}`).join("\n")}
   const trimmedChanges = changesSummary?.trim() ?? "";
   const changesBlock = trimmedChanges
     ? `<CHANGES>
-Campaign edits made by this author during the reporting window. Each row is structured as:
-  - DATE | "Campaign/Adset name" (type) | FIELD | DIRECTION [magnitude] | old → new
+Campaign edits during the reporting window. Each row is structured as:
+  - DATE | "Campaign/Adset name" (type) | FIELD | DIRECTION [magnitude] | ACTOR:MANUAL|RULE | old → new
 
-The DIRECTION label is non-negotiable. INCREASED means the value went up. DECREASED means the value went down. PAUSED, RESUMED, CREATED, DELETED, EDITED are literal. If your sentence mentions an action below, the verb in your sentence must match DIRECTION exactly. Weave only the relevant ones into the message in the way the EXAMPLES handle changes — do not force a separate "changes" section unless the EXAMPLES have one. If you cannot phrase an action accurately, omit it.
+Automated audience refreshes (Shopify Audiences, Klaviyo, Mailchimp, ASA / Advantage+ auto-audiences, catalog auto-syncs, pixel events) have ALREADY been stripped from this list. Do NOT mention any audience refresh or system-driven event — only what appears below is real.
+
+The DIRECTION label is non-negotiable. INCREASED = value went up. DECREASED = value went down. PAUSED, RESUMED, CREATED, DELETED, EDITED are literal. The verb in your sentence must match DIRECTION exactly.
+
+The ACTOR label determines verbiage:
+  - ACTOR:MANUAL — the user clicked this in Ads Manager. You may use first-person ("I raised", "I paused").
+  - ACTOR:RULE — a saved rule fired this automatically. Use impersonal/passive ("budget on X was raised under the standing rule", "X was paused by the rule") — never claim "I" did it.
+
+Weave only the relevant ones into the message in the way the EXAMPLES handle changes — do not force a separate "changes" section unless the EXAMPLES have one. If a row's DIRECTION is EDITED with no magnitude (we couldn't infer the change), omit it. If you cannot phrase an action accurately, omit it.
 
 ${trimmedChanges}
 </CHANGES>
@@ -1372,7 +1737,10 @@ function getVoiceJudgeModelCandidates() {
 
 function getVoiceRegenerateThreshold() {
   const configured = Number(process.env.METIS_TONE_REGENERATE_THRESHOLD ?? "");
-  return Number.isFinite(configured) ? clamp(configured, 0, 10) : 7;
+  // Default 8 (up from 7) — borderline voice mismatches like "spoke about
+  // CPP instead of ROAS" were scoring 6-7 and not triggering regen. 8 means
+  // anything below "would convincingly read as this author" regens once.
+  return Number.isFinite(configured) ? clamp(configured, 0, 10) : 8;
 }
 
 const VOICE_JUDGE_SYSTEM_PROMPT =
