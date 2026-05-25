@@ -1,6 +1,6 @@
-# Metis AI 👋
+# Metis AI ✨
 
-Hey. Metis is what I built instead of manually rewriting my Meta Ads reports in Slack every Friday. It pulls live data, writes a factual operator view, and then rewrites that into a client message that actually sounds like *you*.
+Hey there. Metis is what I built instead of manually rewriting my Meta Ads reports in Slack every Friday. It pulls live data, writes a factual operator view, and then rewrites that into a client message that actually sounds like *you*.
 
 On my own client work it saves me roughly **45 minutes a week and an hour every month.** Small, but every weekend back is worth it.
 
@@ -11,7 +11,7 @@ On my own client work it saves me roughly **45 minutes a week and an hour every 
 
 Paste a Meta access token, pick an ad account, run a real report.
 
-## The Problem
+## The Problem 🤔
 
 Most Meta reporting tools break in one of two ways:
 
@@ -33,7 +33,7 @@ That last mile is what Metis is built to automate.
 
 About 10 seconds end to end.
 
-## How The Agents Work Together
+## How The Agents Work Together 🧩
 
 ```
 [ Meta Ads API ]
@@ -73,7 +73,7 @@ Two things worth knowing about the back-and-forth:
 - **Direction-flip fact check.** A regex sweep over UP / DOWN, PAUSE / RESUME, CREATE / DELETE pairs catches the failure mode where the model flips a verb. If violations survive one regen, the run falls back to the operator-view message rather than ship a wrong claim.
 - **Every LLM call captured durably.** Model picked (including the fallback chain), prompts, raw response, tokens, cost, latency. Persisted to Postgres, viewable as a trace tree at `/admin/runs`.
 
-## Stack
+## Stack 🛠️
 
 - Next.js 16, TypeScript, Tailwind on Vercel
 - OpenRouter as the LLM gateway with multi-model fallback (Claude Sonnet, GPT family)
