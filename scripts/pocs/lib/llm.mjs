@@ -40,7 +40,8 @@ function extractUsageFromPayload(payload) {
 /**
  * @param {{
  *   systemPrompt: string;
- *   userPayload: unknown;
+ *   userPayload?: unknown;
+ *   userMessage?: string;
  *   model?: string;
  *   models?: string[] | null;
  *   temperature?: number;
@@ -56,10 +57,17 @@ function extractUsageFromPayload(payload) {
 export async function requestOpenRouterJson({
   systemPrompt,
   userPayload,
+  userMessage,
   model = process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-5.4-mini",
   models = null,
   temperature,
 }) {
+  if (typeof userMessage !== "string" && userPayload === undefined) {
+    throw new Error("requestOpenRouterJson requires either userMessage or userPayload.");
+  }
+
+  const resolvedUserContent =
+    typeof userMessage === "string" ? userMessage : JSON.stringify(userPayload);
   const apiKey = process.env.OPENROUTER_API_KEY?.trim();
 
   if (!apiKey) {
@@ -102,7 +110,7 @@ export async function requestOpenRouterJson({
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: JSON.stringify(userPayload) },
+            { role: "user", content: resolvedUserContent },
           ],
         }),
       });
@@ -134,6 +142,21 @@ export async function requestOpenRouterJson({
         latencyMs,
         errorMessage: `status ${response.status}`,
       });
+      // 401 from OpenRouter means the API key is invalid, revoked, or the
+      // account is out of credits / suspended. This is an auth-config issue,
+      // not a model-availability issue — failing over to the next candidate
+      // model won't help. Throw immediately with a clear, user-facing message
+      // so the run surfaces "update your OpenRouter key" instead of a raw
+      // JSON dump from the upstream API.
+      if (response.status === 401) {
+        const err = new Error(
+          "OpenRouter API key is invalid, expired, or revoked. Update OPENROUTER_API_KEY in Vercel (Project Settings → Environment Variables) for both Preview and Production, then redeploy.",
+        );
+        /** @type {Error & { code?: string; httpStatus?: number }} */ (err).code =
+          "OPENROUTER_AUTH_FAILED";
+        /** @type {Error & { code?: string; httpStatus?: number }} */ (err).httpStatus = 401;
+        throw err;
+      }
       lastError = new Error(
         `OpenRouter API request failed for ${candidateModel} with status ${response.status}: ${JSON.stringify(payload)}`,
       );
@@ -175,7 +198,7 @@ export async function requestOpenRouterJson({
         },
         prompts: {
           systemPrompt,
-          userMessage: JSON.stringify(userPayload),
+          userMessage: resolvedUserContent,
           responseRaw: message,
         },
       };

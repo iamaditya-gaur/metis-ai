@@ -63,6 +63,30 @@ export type RunDetailRecord = RunListItem & {
   artifacts: unknown[];
 };
 
+export type MetricToken =
+  | "spend"
+  | "impressions"
+  | "reach"
+  | "clicks"
+  | "ctr"
+  | "cpm"
+  | "cpc"
+  | "frequency"
+  | "results"
+  | "costPerResult"
+  | "roas"
+  | "aov"
+  | "purchaseValue"
+  | "linkClicks"
+  | "lpv";
+
+export type ContentVocabulary = {
+  mentionedMetrics: MetricToken[];
+  mentionsCampaigns: boolean;
+  mentionsChanges: boolean;
+  averageMetricCount: number;
+};
+
 export type ToneProfile = {
   sampleCount: number;
   brevity: "tight" | "balanced" | "detailed";
@@ -92,6 +116,15 @@ export type ToneProfile = {
     useThousandsSeparators: boolean;
   };
   commonPhrases: string[];
+  contentVocabulary: ContentVocabulary;
+};
+
+export type MetaActivitySummary = {
+  count: number;
+  summary: string;
+  permissionDenied: boolean;
+  status: "success" | "skipped" | "permission-denied" | "error";
+  note?: string | null;
 };
 
 export type ReportingRunRequest = {
@@ -128,7 +161,34 @@ export type ReportingRunResponse = {
         value: number | null;
         costPerResult: number | null;
       } | null;
+      // Sales-objective extras. Populated when Meta returns action_values
+      // for the `purchase` action_type (or `omni_purchase` for cross-device).
+      // null when no purchase data is available (e.g. lead-gen, awareness
+      // campaigns). Computed at the snapshot level, not per-campaign.
+      roas?: number | null;
+      aov?: number | null;
+      purchaseValue?: number | null;
+      // Subset of `clicks` that are link clicks (distinct from all-clicks
+      // which includes engagement-only clicks). Helpful for traffic
+      // objective reports. Pulled from `actions.link_click`.
+      linkClicks?: number | null;
+      // Landing page views — the post-click step. Pulled from
+      // `actions.landing_page_view`. Often the metric clients ask about
+      // for traffic / conversion funnel reports.
+      lpv?: number | null;
     };
+    // Aggregate objective inferred across the top campaigns by spend share.
+    // Used by the deterministic metric-selection module to decide which
+    // metrics belong in the LLM's PRIMARY block. Optional so older
+    // snapshots stay valid.
+    dominantObjective?:
+      | "OUTCOME_SALES"
+      | "OUTCOME_LEADS"
+      | "OUTCOME_TRAFFIC"
+      | "OUTCOME_AWARENESS"
+      | "OUTCOME_ENGAGEMENT"
+      | "OUTCOME_APP_PROMOTION"
+      | "UNKNOWN";
     topActions: Array<{
       actionType: string;
       label: string;
@@ -156,6 +216,21 @@ export type ReportingRunResponse = {
   finalSlackMessage: string;
   toneProfile: ToneProfile | null;
   toneRewriteBlocked: string | null;
+  voiceScore: number | null;
+  voiceMismatches: string[];
+  voiceRegenerated: boolean;
+  factScore: number | null;
+  factMismatches: string[];
+  factViolations: Array<{
+    type: string;
+    objectName: string;
+    field: string;
+    expectedDirection: string;
+    foundVerb: string;
+    sentence: string;
+    description: string;
+  }>;
+  factCheckBlocked: boolean;
   slackDelivery:
     | {
         status: number;
@@ -163,6 +238,19 @@ export type ReportingRunResponse = {
       }
     | null;
   slackDeliveryBlocked?: string | null;
+  metaActivities: MetaActivitySummary | null;
+};
+
+export type VoiceMatchVerdict = {
+  score: number;
+  mismatches: string[];
+  shouldRegenerate: boolean;
+};
+
+export type FactMatchVerdict = {
+  score: number;
+  mismatches: string[];
+  shouldRegenerate: boolean;
 };
 
 export type BuilderPreviewRequest = {

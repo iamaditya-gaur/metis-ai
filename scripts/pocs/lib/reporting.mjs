@@ -147,6 +147,11 @@ export function buildInsightsSnapshot(rows, dateRange) {
     totalReach > 0 ? round(totalImpressions / totalReach, 2) : null;
 
   const actionTotals = new Map();
+  // Track action *values* (dollar amounts) separately from action *counts*.
+  // Meta returns purchase_value as an action_value with actionType "purchase"
+  // (or "omni_purchase" for cross-device). Used to compute ROAS / AOV /
+  // purchaseValue at the snapshot level.
+  const actionValueTotals = new Map();
 
   for (const row of rows) {
     for (const action of row.actions ?? []) {
@@ -158,7 +163,47 @@ export function buildInsightsSnapshot(rows, dateRange) {
 
       actionTotals.set(actionType, (actionTotals.get(actionType) ?? 0) + action.value);
     }
+    for (const action of row.actionValues ?? []) {
+      const actionType = normalizeActionType(action.actionType);
+
+      if (!actionType || action.value === null) {
+        continue;
+      }
+
+      actionValueTotals.set(
+        actionType,
+        (actionValueTotals.get(actionType) ?? 0) + action.value,
+      );
+    }
   }
+
+  // Sales-objective extras. Prefer `omni_purchase` (cross-device) when both
+  // are present — it's the more complete number; some accounts only return
+  // `purchase`. AOV and ROAS only compute when we have both a value and a
+  // count (purchases), avoiding divide-by-zero.
+  const purchaseValue =
+    actionValueTotals.get("omni_purchase") ??
+    actionValueTotals.get("purchase") ??
+    null;
+  const purchaseCount =
+    actionTotals.get("omni_purchase") ??
+    actionTotals.get("purchase") ??
+    null;
+  const roas =
+    typeof purchaseValue === "number" && totalSpend > 0
+      ? round(purchaseValue / totalSpend, 2)
+      : null;
+  const aov =
+    typeof purchaseValue === "number" &&
+    typeof purchaseCount === "number" &&
+    purchaseCount > 0
+      ? round(purchaseValue / purchaseCount, 2)
+      : null;
+  const linkClicks = actionTotals.get("link_click") ?? null;
+  const lpv =
+    actionTotals.get("landing_page_view") ??
+    actionTotals.get("omni_landing_page_view") ??
+    null;
 
   const topActions = [...actionTotals.entries()]
     .sort((left, right) => right[1] - left[1])
@@ -200,6 +245,11 @@ export function buildInsightsSnapshot(rows, dateRange) {
     dataQuality.push("No action metrics were present in the returned rows.");
   }
 
+  // Normalize the dominant objective so it matches the MetaObjective enum
+  // in src/lib/metis/metric-selection.ts. Legacy values get mapped on the
+  // TypeScript side; here we just pass the raw value through.
+  const dominantObjectiveRaw = getDominantObjective(rows);
+
   return {
     dateRange,
     rowCount: rows.length,
@@ -213,7 +263,13 @@ export function buildInsightsSnapshot(rows, dateRange) {
       cpc: derivedCpc,
       frequency: averageFrequency,
       primaryResult,
+      roas,
+      aov,
+      purchaseValue: typeof purchaseValue === "number" ? round(purchaseValue, 2) : null,
+      linkClicks,
+      lpv,
     },
+    dominantObjective: dominantObjectiveRaw,
     topActions,
     topCampaigns,
     dataQuality,
@@ -308,6 +364,17 @@ export async function generateOpenRouterReportSummary(promptInput) {
   const latencyMs = Math.round(performance.now() - startedAt);
 
   if (!response.ok) {
+    // 401 = invalid / expired / revoked API key, or suspended account.
+    // Surface a clean, actionable message instead of a raw payload dump so
+    // the UI can show the operator what to do next.
+    if (response.status === 401) {
+      const err = new Error(
+        "OpenRouter API key is invalid, expired, or revoked. Update OPENROUTER_API_KEY in Vercel (Project Settings → Environment Variables) for both Preview and Production, then redeploy.",
+      );
+      err.code = "OPENROUTER_AUTH_FAILED";
+      err.httpStatus = 401;
+      throw err;
+    }
     throw new Error(
       `OpenRouter API request failed with status ${response.status}: ${JSON.stringify(payload)}`,
     );

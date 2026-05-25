@@ -446,6 +446,95 @@ export async function getAccountInsights({
   };
 }
 
+/**
+ * Fetch the activity log for an ad account. Returns the campaign/adset/ad edits
+ * Meta records for the given date window. Soft-fails on permission errors so a
+ * reporting run can continue without the change history.
+ *
+ * @param {{
+ *   accountId: string;
+ *   dateRange?: { from?: string | null; to?: string | null; preset?: string | null };
+ *   accessToken?: string | null;
+ * }} options
+ */
+export async function getAccountActivities({
+  accountId,
+  dateRange,
+  accessToken = null,
+}) {
+  const normalizedAccountId = normalizeAdAccountId(accountId);
+  const query = {
+    fields:
+      "event_type,translated_event_type,event_time,object_id,object_name,object_type,value_old,value_new,actor_id,actor_name,extra_data",
+    limit: 100,
+  };
+
+  if (dateRange?.from && dateRange?.to) {
+    query.since = dateRange.from;
+    query.until = dateRange.to;
+  }
+
+  try {
+    const { data, pages } = await requestAllPages(
+      `/${normalizedAccountId}/activities`,
+      query,
+      5,
+      accessToken,
+    );
+
+    return {
+      accountId: normalizedAccountId,
+      dateRange,
+      activities: data.map((row) => ({
+        eventType: row.event_type ?? null,
+        translatedEventType: row.translated_event_type ?? null,
+        eventTime: row.event_time ?? null,
+        objectId: row.object_id ?? null,
+        objectName: row.object_name ?? null,
+        objectType: row.object_type ?? null,
+        valueOld: row.value_old ?? null,
+        valueNew: row.value_new ?? null,
+        actorId: row.actor_id ?? null,
+        actorName: row.actor_name ?? null,
+        extraData: row.extra_data ?? null,
+      })),
+      pages,
+      permissionDenied: false,
+      error: null,
+    };
+  } catch (error) {
+    if (error instanceof MetaApiError) {
+      const code = error.details?.error?.code ?? null;
+      const subcode = error.details?.error?.error_subcode ?? null;
+      const message = String(error.message ?? "");
+      const looksLikePermission =
+        code === 100 ||
+        code === 200 ||
+        code === 10 ||
+        subcode === 458 ||
+        subcode === 459 ||
+        subcode === 460 ||
+        subcode === 463 ||
+        /permission|not authorized|access denied|insufficient|do not have|cannot access/i.test(
+          message,
+        );
+
+      if (looksLikePermission) {
+        return {
+          accountId: normalizedAccountId,
+          dateRange,
+          activities: [],
+          pages: [],
+          permissionDenied: true,
+          error: { code, subcode, message },
+        };
+      }
+    }
+
+    throw error;
+  }
+}
+
 export async function createPausedCampaignDraft({ accountId, campaignDraft }) {
   const normalizedAccountId = normalizeAdAccountId(accountId);
 
