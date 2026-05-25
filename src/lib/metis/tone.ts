@@ -2,6 +2,7 @@ import { requestOpenRouterJson } from "../../../scripts/pocs/lib/llm.mjs";
 
 import type {
   ContentVocabulary,
+  FactMatchVerdict,
   MetricToken,
   ReportingRunResponse,
   ToneProfile,
@@ -775,12 +776,41 @@ export type ActivityRecord = {
   extraData: unknown;
 };
 
-function humanizeEventType(eventType: string | null): string | null {
-  if (!eventType) {
-    return null;
-  }
-  return eventType.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
-}
+/**
+ * Canonical direction labels used in both the compose prompt and the
+ * deterministic fact-check (see src/lib/metis/fact-check.ts). Keeping these
+ * in one place ensures the LLM's allowed verbs and the post-check's
+ * expected verbs stay in lockstep.
+ */
+export type ActivityDirection =
+  | "INCREASED"
+  | "DECREASED"
+  | "PAUSED"
+  | "RESUMED"
+  | "CREATED"
+  | "DELETED"
+  | "EDITED";
+
+export type ActivityField =
+  | "DAILY_BUDGET"
+  | "LIFETIME_BUDGET"
+  | "BID_AMOUNT"
+  | "STATUS"
+  | "CREATIVE"
+  | "TARGETING"
+  | "NAME"
+  | "OTHER";
+
+export type CanonicalActivity = {
+  date: string | null;
+  objectName: string | null;
+  objectType: string | null;
+  field: ActivityField;
+  direction: ActivityDirection;
+  magnitudePercent: number | null;
+  valueOld: string | null;
+  valueNew: string | null;
+};
 
 function formatActivityValue(value: unknown): string | null {
   if (value === null || value === undefined) {
@@ -799,35 +829,176 @@ function formatActivityValue(value: unknown): string | null {
   }
 }
 
-function formatActivityLine(activity: ActivityRecord): string | null {
-  const eventLabel =
-    activity.translatedEventType?.trim() || humanizeEventType(activity.eventType);
+function parseNumericLike(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+  // Strip currency symbols, commas, units; preserve sign and decimal.
+  const cleaned = value.replace(/[^0-9.\-]/g, "");
+  if (!cleaned) {
+    return null;
+  }
+  const num = Number(cleaned);
+  return Number.isFinite(num) ? num : null;
+}
 
-  if (!eventLabel) {
+function classifyStatusDirection(
+  oldVal: string | null,
+  newVal: string | null,
+): ActivityDirection | null {
+  const o = (oldVal ?? "").trim().toUpperCase();
+  const n = (newVal ?? "").trim().toUpperCase();
+  if (!o && !n) {
+    return null;
+  }
+  if (n === "PAUSED" || n === "ARCHIVED") {
+    return "PAUSED";
+  }
+  if (n === "DELETED") {
+    return "DELETED";
+  }
+  if ((o === "PAUSED" || o === "ARCHIVED") && n === "ACTIVE") {
+    return "RESUMED";
+  }
+  if (!o && n === "ACTIVE") {
+    return "CREATED";
+  }
+  return "EDITED";
+}
+
+export function deriveCanonicalActivity(
+  activity: ActivityRecord,
+): CanonicalActivity | null {
+  const eventTypeRaw = (activity.eventType ?? "").toLowerCase();
+  const translated = (activity.translatedEventType ?? "").toLowerCase();
+  const haystack = `${eventTypeRaw} ${translated}`;
+  const oldValue = formatActivityValue(activity.valueOld);
+  const newValue = formatActivityValue(activity.valueNew);
+  const date = activity.eventTime ? activity.eventTime.slice(0, 10) : null;
+  const objectName = activity.objectName?.trim() ?? null;
+  const objectType = activity.objectType?.trim() ?? null;
+
+  let field: ActivityField = "OTHER";
+  let direction: ActivityDirection = "EDITED";
+  let magnitudePercent: number | null = null;
+
+  // Field classification — order matters (more specific first).
+  if (haystack.includes("daily") && haystack.includes("budget")) {
+    field = "DAILY_BUDGET";
+  } else if (haystack.includes("lifetime") && haystack.includes("budget")) {
+    field = "LIFETIME_BUDGET";
+  } else if (haystack.includes("budget")) {
+    field = "DAILY_BUDGET";
+  } else if (haystack.includes("bid")) {
+    field = "BID_AMOUNT";
+  } else if (
+    haystack.includes("status") ||
+    haystack.includes("pause") ||
+    haystack.includes("resume") ||
+    haystack.includes("activate") ||
+    haystack.includes("deactivate")
+  ) {
+    field = "STATUS";
+  } else if (haystack.includes("creative") || haystack.includes("ad ")) {
+    field = "CREATIVE";
+  } else if (haystack.includes("target") || haystack.includes("audience")) {
+    field = "TARGETING";
+  } else if (haystack.includes("name") || haystack.includes("rename")) {
+    field = "NAME";
+  }
+
+  // Direction classification.
+  if (field === "STATUS") {
+    direction = classifyStatusDirection(oldValue, newValue) ?? "EDITED";
+  } else if (haystack.includes("delete") || haystack.includes("remove")) {
+    direction = "DELETED";
+  } else if (
+    haystack.includes("create") ||
+    haystack.includes("add") ||
+    (!oldValue && newValue)
+  ) {
+    direction = "CREATED";
+  } else if (haystack.includes("pause")) {
+    direction = "PAUSED";
+    field = "STATUS";
+  } else if (haystack.includes("resume") || haystack.includes("activate")) {
+    direction = "RESUMED";
+    field = "STATUS";
+  } else if (field === "DAILY_BUDGET" || field === "LIFETIME_BUDGET" || field === "BID_AMOUNT") {
+    const oldNum = parseNumericLike(oldValue);
+    const newNum = parseNumericLike(newValue);
+    if (oldNum !== null && newNum !== null && oldNum !== 0) {
+      const delta = newNum - oldNum;
+      magnitudePercent = (delta / Math.abs(oldNum)) * 100;
+      if (newNum > oldNum) {
+        direction = "INCREASED";
+      } else if (newNum < oldNum) {
+        direction = "DECREASED";
+      } else {
+        direction = "EDITED";
+      }
+    } else if (newValue && !oldValue) {
+      direction = "CREATED";
+    }
+  }
+
+  // If we couldn't infer anything useful at all, drop the row to avoid
+  // injecting empty noise the LLM will try to fill in.
+  if (!objectName && !oldValue && !newValue && direction === "EDITED" && field === "OTHER") {
     return null;
   }
 
-  const date = activity.eventTime ? activity.eventTime.slice(0, 10) : null;
-  const objectName = activity.objectName?.trim();
-  const objectType = activity.objectType?.trim();
-  const objectPart = objectName
-    ? ` on "${objectName}"${objectType ? ` [${objectType}]` : ""}`
-    : "";
-
-  const oldValue = formatActivityValue(activity.valueOld);
-  const newValue = formatActivityValue(activity.valueNew);
-  const valueChange = oldValue && newValue ? ` (${oldValue} → ${newValue})` : "";
-
-  const datePart = date ? `${date}: ` : "";
-  return `- ${datePart}${eventLabel}${objectPart}${valueChange}`.trim();
+  return {
+    date,
+    objectName,
+    objectType,
+    field,
+    direction,
+    magnitudePercent,
+    valueOld: oldValue,
+    valueNew: newValue,
+  };
 }
 
-export function summarizeActivitiesForPrompt(
+function formatMagnitude(magnitudePercent: number | null): string {
+  if (magnitudePercent === null || !Number.isFinite(magnitudePercent)) {
+    return "";
+  }
+  const sign = magnitudePercent > 0 ? "+" : "";
+  const rounded = Math.abs(magnitudePercent) >= 10
+    ? Math.round(magnitudePercent)
+    : Math.round(magnitudePercent * 10) / 10;
+  return ` ${sign}${rounded}%`;
+}
+
+function formatCanonicalLine(activity: CanonicalActivity): string {
+  const datePart = activity.date ?? "unknown-date";
+  const namePart = activity.objectName
+    ? `"${activity.objectName}"${activity.objectType ? ` (${activity.objectType})` : ""}`
+    : "(unnamed object)";
+  const magnitudePart = formatMagnitude(activity.magnitudePercent);
+  const valuePart =
+    activity.valueOld && activity.valueNew
+      ? ` | ${activity.valueOld} → ${activity.valueNew}`
+      : activity.valueNew
+        ? ` | (new) ${activity.valueNew}`
+        : activity.valueOld
+          ? ` | ${activity.valueOld} → (removed)`
+          : "";
+  return `- ${datePart} | ${namePart} | ${activity.field} | ${activity.direction}${magnitudePart}${valuePart}`;
+}
+
+/**
+ * Returns the structured-string CHANGES block plus the canonical activity
+ * list. The canonical list is reused by the deterministic fact-check so the
+ * LLM-facing text and the post-check verifier share one source of truth.
+ */
+export function buildCanonicalActivities(
   activities: ActivityRecord[],
   maxItems = 10,
-): string {
+): { summary: string; canonical: CanonicalActivity[] } {
   if (!activities.length) {
-    return "";
+    return { summary: "", canonical: [] };
   }
 
   const sorted = [...activities].sort((a, b) => {
@@ -836,24 +1007,34 @@ export function summarizeActivitiesForPrompt(
     return bTime.localeCompare(aTime);
   });
 
-  const lines: string[] = [];
+  const canonical: CanonicalActivity[] = [];
   for (const activity of sorted) {
-    const line = formatActivityLine(activity);
-    if (line) {
-      lines.push(line);
+    const derived = deriveCanonicalActivity(activity);
+    if (derived) {
+      canonical.push(derived);
     }
-    if (lines.length >= maxItems) {
+    if (canonical.length >= maxItems) {
       break;
     }
   }
 
-  if (activities.length > lines.length) {
+  const lines = canonical.map(formatCanonicalLine);
+
+  if (activities.length > canonical.length) {
+    const omitted = activities.length - canonical.length;
     lines.push(
-      `- (+ ${activities.length - lines.length} additional edit${activities.length - lines.length === 1 ? "" : "s"} omitted for brevity)`,
+      `- (+ ${omitted} additional edit${omitted === 1 ? "" : "s"} omitted for brevity)`,
     );
   }
 
-  return lines.join("\n");
+  return { summary: lines.join("\n"), canonical };
+}
+
+export function summarizeActivitiesForPrompt(
+  activities: ActivityRecord[],
+  maxItems = 10,
+): string {
+  return buildCanonicalActivities(activities, maxItems).summary;
 }
 
 export function deriveToneProfile(toneExamples: string): ToneProfile {
@@ -979,7 +1160,7 @@ export async function buildToneProfile(
 }
 
 const COMPOSE_SYSTEM_PROMPT =
-  "You are writing a client-facing performance update as the same author who wrote the EXAMPLES below. Channel their voice: their sentence rhythm, vocabulary, idioms, signature phrases, paragraph shape, greetings, sign-offs, and quirks. The EXAMPLES are the gospel for HOW to write. The NARRATIVE_FACTS, METRICS_PRIMARY, METRICS_OPTIONAL, CAMPAIGNS, and CHANGES blocks are the gospel for WHAT to say — every metric and claim must come from these, never invented. METRICS_PRIMARY lists the metrics this author typically discusses; prefer those when you mention numbers. METRICS_OPTIONAL is available only if the narrative genuinely requires it — do not list those metrics for completeness; do not exceed the author's typical metric density by more than one. CAMPAIGNS may be referenced by name only if the EXAMPLES show this author naming campaigns. CHANGES (when present) describes campaign edits made during the period; weave only the relevant ones, in the way the EXAMPLES handle edits — never force a separate 'changes' section unless the EXAMPLES have one. When mentioning numbers, prefer the exact formatted strings supplied unless a clear pattern from the EXAMPLES dictates a different style for the same value. Your job is to write a fresh message that a long-time reader would assume the author wrote themselves. Return valid JSON only: {\"clientMessage\": \"...\"}.";
+  "You are writing a client-facing performance update as the same author who wrote the EXAMPLES below. Channel their voice: their sentence rhythm, vocabulary, idioms, signature phrases, paragraph shape, greetings, sign-offs, and quirks. The EXAMPLES are the gospel for HOW to write. The NARRATIVE_FACTS, METRICS_PRIMARY, METRICS_OPTIONAL, CAMPAIGNS, and CHANGES blocks are the gospel for WHAT to say — every metric and claim must come from these, never invented. METRICS_PRIMARY lists the metrics this author typically discusses; prefer those when you mention numbers. METRICS_OPTIONAL is available only if the narrative genuinely requires it — do not list those metrics for completeness; do not exceed the author's typical metric density by more than one. CAMPAIGNS may be referenced by name only if the EXAMPLES show this author naming campaigns. CHANGES (when present) describes campaign edits made during the period; weave only the relevant ones, in the way the EXAMPLES handle edits — never force a separate 'changes' section unless the EXAMPLES have one. CRITICAL: each CHANGES row carries an explicit DIRECTION label (INCREASED, DECREASED, PAUSED, RESUMED, CREATED, DELETED, EDITED). The verb you choose in your message MUST match that DIRECTION — never invert direction, never round 'DECREASED' up to 'tweaked', never paint a 'PAUSED' as a 'launched'. If DIRECTION is INCREASED, use raised/bumped/increased/scaled-up/boosted. If DECREASED, use lowered/cut/reduced/trimmed/scaled-down. If PAUSED, use paused/stopped/turned-off. If RESUMED, use resumed/restarted/turned-on. If you cannot honestly describe an action without misrepresenting its direction, omit that action entirely. When mentioning numbers, prefer the exact formatted strings supplied unless a clear pattern from the EXAMPLES dictates a different style for the same value. Your job is to write a fresh message that a long-time reader would assume the author wrote themselves. Return valid JSON only: {\"clientMessage\": \"...\"}.";
 
 function buildNarrativeFactsBlock(
   snapshot: SnapshotForToneRewrite,
@@ -1122,7 +1303,11 @@ ${critiqueFeedback.map((item) => `- ${item}`).join("\n")}
   const trimmedChanges = changesSummary?.trim() ?? "";
   const changesBlock = trimmedChanges
     ? `<CHANGES>
-Campaign edits made by this author during the reporting window. Weave only the relevant ones into the message in the way the EXAMPLES handle changes — do not force a separate "changes" section unless the EXAMPLES have one.
+Campaign edits made by this author during the reporting window. Each row is structured as:
+  - DATE | "Campaign/Adset name" (type) | FIELD | DIRECTION [magnitude] | old → new
+
+The DIRECTION label is non-negotiable. INCREASED means the value went up. DECREASED means the value went down. PAUSED, RESUMED, CREATED, DELETED, EDITED are literal. If your sentence mentions an action below, the verb in your sentence must match DIRECTION exactly. Weave only the relevant ones into the message in the way the EXAMPLES handle changes — do not force a separate "changes" section unless the EXAMPLES have one. If you cannot phrase an action accurately, omit it.
+
 ${trimmedChanges}
 </CHANGES>
 
@@ -1254,6 +1439,99 @@ Score the candidate against the examples on voice only. Output JSON: {"score": 0
         .slice(0, 5)
     : [];
   const threshold = getVoiceRegenerateThreshold();
+
+  return {
+    score,
+    mismatches,
+    shouldRegenerate: score < threshold,
+    model: result.model,
+    usage: result.usage,
+    prompts: result.prompts,
+  };
+}
+
+function getFactJudgeModelCandidates() {
+  const explicit = process.env.OPENROUTER_FACT_JUDGE_MODEL?.trim();
+  if (explicit) {
+    return explicit
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+  // Default to the same cheap model the voice judge uses — they're both
+  // tight, scoped reads of the candidate text.
+  return getVoiceJudgeModelCandidates();
+}
+
+function getFactRegenerateThreshold() {
+  const configured = Number(process.env.METIS_FACT_REGENERATE_THRESHOLD ?? "");
+  return Number.isFinite(configured) ? clamp(configured, 0, 10) : 7;
+}
+
+/**
+ * Fact-judge prompt is catalog-aware: it lists the media-buying failure
+ * categories explicitly so a small cheap model has a checklist to scan
+ * against, not vague intent. Each category in the prompt maps to a real
+ * client-blast-radius risk (polarity flips, magnitude inflation, false
+ * causal claims, etc.). Voice is OUT of scope here — that's gradeVoiceMatch.
+ */
+const FACT_JUDGE_SYSTEM_PROMPT =
+  "You audit client-facing Meta-ads reporting messages for FACTUAL ACCURACY against a structured SOURCE_FACTS block. Score 0-10. Score 10 = every claim in the CANDIDATE message is exactly supported by SOURCE_FACTS. Score 0 = multiple invented, flipped, or unsupported claims. Ignore voice, tone, length, and style — those are judged elsewhere. CATEGORIES to check (flag any failure you find, listed in priority order): (1) DIRECTION-FLIP: any action verb that contradicts the DIRECTION label on a matching CHANGES row (e.g. message says 'bumped' but DIRECTION is DECREASED). (2) MAGNITUDE: percent/multiplier claims that don't match the magnitude in CHANGES or metric deltas (e.g. 'doubled' when actual was +10%). (3) ATTRIBUTION: action attributed to a campaign that doesn't appear in CHANGES, or wrong campaign named for a real action. (4) METRIC-DIRECTION: 'spend up' when totals show down, 'CTR rose' when flat or fell, etc. (5) METRIC-VALUE: dollar figures, percents, or counts that don't match NARRATIVE_FACTS / METRICS / CAMPAIGNS exactly. (6) FALSE-CAUSAL: claims of cause ('X drove Y') without supporting data in SOURCE_FACTS. (7) PHANTOM-COMMITMENT: forward promises ('next week I will…') that aren't in SOURCE_FACTS. (8) RECOMMENDATION-SAFETY: recommends scaling something that SOURCE_FACTS shows is failing, or pausing a top performer. Return valid JSON only: {\"score\": number, \"mismatches\": string[]} where each mismatch starts with the category label (e.g. \"DIRECTION-FLIP on 'Spring Sale': message says 'bumped budget' but CHANGES shows DECREASED -37.5%\"). Keep mismatches to at most 6 items, ordered by severity.";
+
+export async function gradeFactMatch({
+  clientMessage,
+  sourceFacts,
+}: {
+  clientMessage: string;
+  sourceFacts: string;
+}): Promise<
+  FactMatchVerdict & {
+    model: string | null;
+    usage: OpenRouterUsage | null;
+    prompts: OpenRouterPrompts | null;
+  }
+> {
+  if (!clientMessage.trim() || !sourceFacts.trim()) {
+    return {
+      score: 10,
+      mismatches: [],
+      shouldRegenerate: false,
+      model: null,
+      usage: null,
+      prompts: null,
+    };
+  }
+
+  const userMessage = `<SOURCE_FACTS>
+${sourceFacts}
+</SOURCE_FACTS>
+
+<CANDIDATE>
+${clientMessage}
+</CANDIDATE>
+
+<TASK>
+Audit the CANDIDATE against SOURCE_FACTS. Walk the 8 categories in the system prompt. Output JSON: {"score": 0-10, "mismatches": [string, ...]}.
+</TASK>`;
+
+  const result = (await requestOpenRouterJson({
+    systemPrompt: FACT_JUDGE_SYSTEM_PROMPT,
+    userMessage,
+    models: getFactJudgeModelCandidates(),
+    temperature: 0,
+  })) as RequestOpenRouterJsonResult;
+
+  const data = result.data as { score?: unknown; mismatches?: unknown } | null;
+  const rawScore =
+    typeof data?.score === "number" && Number.isFinite(data.score) ? data.score : 0;
+  const score = clamp(roundToInteger(rawScore), 0, 10);
+  const mismatches = Array.isArray(data?.mismatches)
+    ? data.mismatches
+        .map((item) => String(item).trim())
+        .filter(Boolean)
+        .slice(0, 6)
+    : [];
+  const threshold = getFactRegenerateThreshold();
 
   return {
     score,

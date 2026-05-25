@@ -187,6 +187,18 @@ export type ReportingRunResponse = {
   voiceScore: number | null;
   voiceMismatches: string[];
   voiceRegenerated: boolean;
+  factScore: number | null;
+  factMismatches: string[];
+  factViolations: Array<{
+    type: string;
+    objectName: string;
+    field: string;
+    expectedDirection: string;
+    foundVerb: string;
+    sentence: string;
+    description: string;
+  }>;
+  factCheckBlocked: boolean;
   slackDelivery:
     | {
         status: number;
@@ -198,6 +210,12 @@ export type ReportingRunResponse = {
 };
 
 export type VoiceMatchVerdict = {
+  score: number;
+  mismatches: string[];
+  shouldRegenerate: boolean;
+};
+
+export type FactMatchVerdict = {
   score: number;
   mismatches: string[];
   shouldRegenerate: boolean;
