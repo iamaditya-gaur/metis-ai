@@ -891,16 +891,52 @@ export function deriveToneProfile(toneExamples: string): ToneProfile {
   };
 }
 
-export async function buildToneProfile(toneExamples: string): Promise<ToneProfile> {
+export type OpenRouterUsage = {
+  promptTokens: number | null;
+  completionTokens: number | null;
+  totalTokens: number | null;
+  costUsd: number | null;
+  latencyMs: number | null;
+  attempts: Array<{
+    model: string;
+    status: "success" | "http_error" | "empty_message" | "invalid_json";
+    httpStatus: number | null;
+    latencyMs: number;
+    errorMessage: string | null;
+  }>;
+  attemptedModels: string[];
+};
+
+export type OpenRouterPrompts = {
+  systemPrompt: string;
+  userMessage: string;
+  responseRaw: string;
+};
+
+type RequestOpenRouterJsonResult = {
+  model: string;
+  data: unknown;
+  usage: OpenRouterUsage;
+  prompts: OpenRouterPrompts;
+};
+
+export async function buildToneProfile(
+  toneExamples: string,
+): Promise<{
+  profile: ToneProfile;
+  model: string | null;
+  usage: OpenRouterUsage | null;
+  prompts: OpenRouterPrompts | null;
+}> {
   const heuristicProfile = deriveToneProfile(toneExamples);
   const samples = splitToneExamples(toneExamples);
 
   if (!samples.length) {
-    return heuristicProfile;
+    return { profile: heuristicProfile, model: null, usage: null, prompts: null };
   }
 
   try {
-    const result = await requestOpenRouterJson({
+    const result = (await requestOpenRouterJson({
       systemPrompt:
         "You analyze client-facing reporting messages for Metis AI. Return valid JSON only with keys sampleCount, brevity, perspective, openingStyle, structureStyle, metricStyle, recommendationStyle, confidence, targetWordCount, wordRange, numericStyle, commonPhrases. Focus on writing style only. numericStyle must include currencyDecimalPlaces, percentDecimalPlaces, plainNumberDecimalPlaces, and useThousandsSeparators.",
       userPayload: {
@@ -929,11 +965,16 @@ export async function buildToneProfile(toneExamples: string): Promise<ToneProfil
       },
       models: getCommunicatorModelCandidates(),
       temperature: getToneProfileTemperature(),
-    });
+    })) as RequestOpenRouterJsonResult;
 
-    return validateToneProfile(result.data, heuristicProfile);
+    return {
+      profile: validateToneProfile(result.data, heuristicProfile),
+      model: result.model,
+      usage: result.usage,
+      prompts: result.prompts,
+    };
   } catch {
-    return heuristicProfile;
+    return { profile: heuristicProfile, model: null, usage: null, prompts: null };
   }
 }
 
@@ -1054,7 +1095,13 @@ export async function composeClientMessage({
   toneProfile: ToneProfile;
   critiqueFeedback?: string[];
   changesSummary?: string | null;
-}) {
+}): Promise<{
+  message: string;
+  model: string;
+  samples: string[];
+  usage: OpenRouterUsage;
+  prompts: OpenRouterPrompts;
+}> {
   const samples = splitToneExamples(toneExamples).slice(0, 8);
   const examplesBlock = buildExamplesBlock(samples);
   const narrativeFactsBlock = buildNarrativeFactsBlock(snapshot, report);
@@ -1100,12 +1147,12 @@ ${trimmedChanges}
 
   const userMessage = sections.join("\n\n");
 
-  const result = await requestOpenRouterJson({
+  const result = (await requestOpenRouterJson({
     systemPrompt: COMPOSE_SYSTEM_PROMPT,
     userMessage,
     models: getCommunicatorModelCandidates(),
     temperature: getComposeTemperature(),
-  });
+  })) as RequestOpenRouterJsonResult;
 
   if (
     !result.data ||
@@ -1118,8 +1165,10 @@ ${trimmedChanges}
   const raw = (result.data as { clientMessage: string }).clientMessage.trim();
   return {
     message: normalizeMessageNumericFormatting(raw, toneProfile, samples),
-    model: result.model as string,
+    model: result.model,
     samples,
+    usage: result.usage,
+    prompts: result.prompts,
   };
 }
 
@@ -1150,9 +1199,22 @@ export async function gradeVoiceMatch({
 }: {
   clientMessage: string;
   samples: string[];
-}): Promise<VoiceMatchVerdict> {
+}): Promise<
+  VoiceMatchVerdict & {
+    model: string | null;
+    usage: OpenRouterUsage | null;
+    prompts: OpenRouterPrompts | null;
+  }
+> {
   if (!samples.length || !clientMessage.trim()) {
-    return { score: 10, mismatches: [], shouldRegenerate: false };
+    return {
+      score: 10,
+      mismatches: [],
+      shouldRegenerate: false,
+      model: null,
+      usage: null,
+      prompts: null,
+    };
   }
 
   const exampleBlocks = samples
@@ -1174,12 +1236,12 @@ ${clientMessage}
 Score the candidate against the examples on voice only. Output JSON: {"score": 0-10, "mismatches": [string, ...]}.
 </TASK>`;
 
-  const result = await requestOpenRouterJson({
+  const result = (await requestOpenRouterJson({
     systemPrompt: VOICE_JUDGE_SYSTEM_PROMPT,
     userMessage,
     models: getVoiceJudgeModelCandidates(),
     temperature: 0,
-  });
+  })) as RequestOpenRouterJsonResult;
 
   const data = result.data as { score?: unknown; mismatches?: unknown } | null;
   const rawScore =
@@ -1197,5 +1259,8 @@ Score the candidate against the examples on voice only. Output JSON: {"score": 0
     score,
     mismatches,
     shouldRegenerate: score < threshold,
+    model: result.model,
+    usage: result.usage,
+    prompts: result.prompts,
   };
 }

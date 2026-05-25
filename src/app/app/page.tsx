@@ -4,8 +4,6 @@ import { AppShell } from "@/components/app-shell";
 import { GlassPanel } from "@/components/glass-panel";
 import { MetricTile } from "@/components/metric-tile";
 import { MissionControlSwitcher } from "@/components/mission-control-switcher";
-import { RunList } from "@/components/run-list";
-import { listRunSummaries } from "@/lib/metis/runs";
 import { defaultAccountBadges } from "@/lib/metis/types";
 
 const missionMetrics = [
@@ -27,8 +25,6 @@ const missionMetrics = [
 ];
 
 export default async function MissionControlPage() {
-  const runs = await listRunSummaries(4);
-
   return (
     <AppShell
       eyebrow="Mission Control"
@@ -78,7 +74,17 @@ export default async function MissionControlPage() {
         </GlassPanel>
       </div>
 
-      <RunList runs={runs} />
+      <GlassPanel
+        eyebrow="Observability"
+        title="Run inspection has moved"
+        description="Per-run trace, model selection, token usage, and prompt/response detail now live behind the admin observability surface."
+      >
+        <div className="product-button-row">
+          <Link href="/admin/runs" className="product-button">
+            Open admin runs
+          </Link>
+        </div>
+      </GlassPanel>
     </AppShell>
   );
 }

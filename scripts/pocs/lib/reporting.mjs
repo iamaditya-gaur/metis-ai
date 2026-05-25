@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { performance } from "node:perf_hooks";
 
 import { maskAdAccountId, maskName } from "./mask.mjs";
 
@@ -275,6 +276,7 @@ export async function generateOpenRouterReportSummary(promptInput) {
   }
 
   const model = process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-5.4-mini";
+  const startedAt = performance.now();
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -303,6 +305,7 @@ export async function generateOpenRouterReportSummary(promptInput) {
   });
 
   const payload = await response.json();
+  const latencyMs = Math.round(performance.now() - startedAt);
 
   if (!response.ok) {
     throw new Error(
@@ -324,9 +327,44 @@ export async function generateOpenRouterReportSummary(promptInput) {
     throw new Error("OpenRouter message content was not valid JSON.");
   }
 
+  const usageBlock =
+    payload && typeof payload === "object" && payload.usage && typeof payload.usage === "object"
+      ? payload.usage
+      : null;
+  const num = (value) =>
+    typeof value === "number" && Number.isFinite(value) ? value : null;
+
+  const systemPrompt =
+    "You are the Reporting Analyst Agent for Metis AI. Use OpenRouter as the LLM gateway. Return valid JSON only with keys executiveSummary, whatChanged, risks, nextActions, slackMessage. Never invent metrics, never expose secrets, and keep the Slack message concise.";
+
   return {
     model,
     report: validateGeneratedReport(parsed),
+    usage: {
+      promptTokens: num(usageBlock?.prompt_tokens),
+      completionTokens: num(usageBlock?.completion_tokens),
+      totalTokens: num(usageBlock?.total_tokens),
+      costUsd:
+        num(usageBlock?.cost) ??
+        num(usageBlock?.cost_details?.upstream_inference_cost) ??
+        null,
+      latencyMs,
+      attempts: [
+        {
+          model,
+          status: "success",
+          httpStatus: response.status,
+          latencyMs,
+          errorMessage: null,
+        },
+      ],
+      attemptedModels: [model],
+    },
+    prompts: {
+      systemPrompt,
+      userMessage: JSON.stringify(promptInput),
+      responseRaw: message,
+    },
   };
 }
 

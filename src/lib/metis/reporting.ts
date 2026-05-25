@@ -13,12 +13,15 @@ import {
 } from "../../../scripts/pocs/lib/meta-client.mjs";
 import { writeStructuredRunLog } from "../../../scripts/pocs/lib/observability.mjs";
 
+import { persistRunToSupabase } from "@/lib/metis/observability/supabase";
 import {
   buildToneProfile,
   composeClientMessage,
   gradeVoiceMatch,
   summarizeActivitiesForPrompt,
   type ActivityRecord,
+  type OpenRouterPrompts,
+  type OpenRouterUsage,
 } from "@/lib/metis/tone";
 import type {
   MetaActivitySummary,
@@ -35,6 +38,20 @@ const getAccountActivitiesUnsafe = getAccountActivities as (args: {
   permissionDenied: boolean;
   error: { code: number | null; subcode: number | null; message: string } | null;
 }>;
+
+type LlmCallRecord = {
+  step:
+    | "report-summary"
+    | "tone-profile"
+    | "tone-compose"
+    | "tone-compose-regenerate"
+    | "voice-judge";
+  model: string | null;
+  status: "success" | "skipped" | "error";
+  errorMessage: string | null;
+  usage: OpenRouterUsage | null;
+  prompts: OpenRouterPrompts | null;
+};
 
 const postSlackMessageUnsafe = postSlackMessage as (args: {
   text: string;
@@ -120,13 +137,45 @@ export async function runReportingWorkflow(
     accessToken: input.accessToken ?? null,
   });
 
+  const llmCalls: LlmCallRecord[] = [];
+
   const promptInput = buildReportPromptInput({ accountId, rows, dateRange });
-  const { model, report } = await generateOpenRouterReportSummary(promptInput);
+  const reportSummaryResult = await generateOpenRouterReportSummary(promptInput);
+  const { model, report } = reportSummaryResult;
+  const reportSummaryUsage =
+    (reportSummaryResult.usage as OpenRouterUsage | undefined) ?? null;
+  const reportSummaryPrompts =
+    (reportSummaryResult.prompts as OpenRouterPrompts | undefined) ?? null;
+  llmCalls.push({
+    step: "report-summary",
+    model,
+    status: "success",
+    errorMessage: null,
+    usage: reportSummaryUsage,
+    prompts: reportSummaryPrompts,
+  });
+
   const toneExamples = input.toneExamples.trim();
   const snapshot = buildInsightsSnapshot(rows, dateRange);
-  const toneProfile = toneExamples ? await buildToneProfile(toneExamples) : null;
+
+  let toneProfile: ReportingRunResponse["toneProfile"] = null;
+  if (toneExamples) {
+    const toneProfileResult = await buildToneProfile(toneExamples);
+    toneProfile = toneProfileResult.profile;
+    llmCalls.push({
+      step: "tone-profile",
+      model: toneProfileResult.model,
+      status: toneProfileResult.model ? "success" : "skipped",
+      errorMessage: null,
+      usage: toneProfileResult.usage,
+      prompts: toneProfileResult.prompts,
+    });
+  }
+
   let finalSlackMessage = report.slackMessage;
   let toneRewriteBlocked: string | null = null;
+  let toneRewriteModel: string | null = null;
+  let toneRewriteUsage: OpenRouterUsage | null = null;
   let voiceScore: number | null = null;
   let voiceMismatches: string[] = [];
   let voiceRegenerated = false;
@@ -190,6 +239,16 @@ export async function runReportingWorkflow(
         toneProfile,
         changesSummary,
       });
+      toneRewriteModel = composed.model;
+      toneRewriteUsage = composed.usage;
+      llmCalls.push({
+        step: "tone-compose",
+        model: composed.model,
+        status: "success",
+        errorMessage: null,
+        usage: composed.usage,
+        prompts: composed.prompts,
+      });
       let activeMessage = composed.message;
 
       try {
@@ -199,6 +258,14 @@ export async function runReportingWorkflow(
         });
         voiceScore = verdict.score;
         voiceMismatches = verdict.mismatches;
+        llmCalls.push({
+          step: "voice-judge",
+          model: verdict.model,
+          status: verdict.model ? "success" : "skipped",
+          errorMessage: null,
+          usage: verdict.usage,
+          prompts: verdict.prompts,
+        });
 
         if (verdict.shouldRegenerate) {
           try {
@@ -212,20 +279,81 @@ export async function runReportingWorkflow(
             });
             activeMessage = revised.message;
             voiceRegenerated = true;
-          } catch {
+            toneRewriteModel = revised.model;
+            toneRewriteUsage = revised.usage;
+            llmCalls.push({
+              step: "tone-compose-regenerate",
+              model: revised.model,
+              status: "success",
+              errorMessage: null,
+              usage: revised.usage,
+              prompts: revised.prompts,
+            });
+          } catch (regenError) {
             // Keep the first attempt when revision fails; surface in observability via voiceScore.
+            llmCalls.push({
+              step: "tone-compose-regenerate",
+              model: null,
+              status: "error",
+              errorMessage:
+                regenError instanceof Error
+                  ? regenError.message
+                  : "Unknown regenerate error.",
+              usage: null,
+              prompts: null,
+            });
           }
         }
-      } catch {
+      } catch (judgeError) {
         // Grading failure should not block the run — accept the first attempt silently.
+        llmCalls.push({
+          step: "voice-judge",
+          model: null,
+          status: "error",
+          errorMessage:
+            judgeError instanceof Error
+              ? judgeError.message
+              : "Unknown voice-judge error.",
+          usage: null,
+          prompts: null,
+        });
       }
 
       finalSlackMessage = activeMessage;
     } catch (error) {
       toneRewriteBlocked =
         error instanceof Error ? error.message : "Unknown compose error.";
+      llmCalls.push({
+        step: "tone-compose",
+        model: null,
+        status: "error",
+        errorMessage: toneRewriteBlocked,
+        usage: null,
+        prompts: null,
+      });
     }
   }
+
+  const totalPromptTokens = llmCalls.reduce(
+    (sum, call) => sum + (call.usage?.promptTokens ?? 0),
+    0,
+  );
+  const totalCompletionTokens = llmCalls.reduce(
+    (sum, call) => sum + (call.usage?.completionTokens ?? 0),
+    0,
+  );
+  const totalTokens = llmCalls.reduce(
+    (sum, call) => sum + (call.usage?.totalTokens ?? 0),
+    0,
+  );
+  const totalCostUsd = llmCalls.reduce(
+    (sum, call) => sum + (call.usage?.costUsd ?? 0),
+    0,
+  );
+  const totalLatencyMs = llmCalls.reduce(
+    (sum, call) => sum + (call.usage?.latencyMs ?? 0),
+    0,
+  );
 
   const finalReport = {
     ...report,
@@ -254,7 +382,7 @@ export async function runReportingWorkflow(
   const finishedAt = new Date().toISOString();
   const runId = `reporting-${randomUUID()}`;
 
-  await writeStructuredRunLog({
+  const runLogPayload = {
     runId,
     flowType: "reporting",
     status: "success",
@@ -263,6 +391,14 @@ export async function runReportingWorkflow(
     summary: report.executiveSummary,
     startedAt,
     finishedAt,
+    llmCalls,
+    totals: {
+      promptTokens: totalPromptTokens || null,
+      completionTokens: totalCompletionTokens || null,
+      totalTokens: totalTokens || null,
+      costUsd: totalCostUsd || null,
+      latencyMs: totalLatencyMs || null,
+    },
     agentSteps: [
       {
         step: "meta-insights",
@@ -280,6 +416,7 @@ export async function runReportingWorkflow(
         step: "report-summary",
         status: "success",
         model,
+        usage: reportSummaryUsage,
       },
       {
         step: "tone-rewrite",
@@ -290,6 +427,9 @@ export async function runReportingWorkflow(
         voiceRegenerated,
         voiceMismatches,
         changesUsed: Boolean(changesSummary),
+        model: toneRewriteModel,
+        usage: toneRewriteUsage,
+        errorMessage: toneRewriteBlocked,
       },
       {
         step: "slack-delivery",
@@ -331,7 +471,14 @@ export async function runReportingWorkflow(
         report: finalReport,
       },
     ],
-  });
+  };
+
+  // Dual sink: legacy JSONL (local dev) + Supabase (durable, queryable).
+  // Both are non-blocking — a sink failure must never break a user-facing run.
+  await Promise.allSettled([
+    writeStructuredRunLog(runLogPayload),
+    persistRunToSupabase(runLogPayload),
+  ]);
 
   return {
     runId,
