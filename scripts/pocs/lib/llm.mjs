@@ -142,6 +142,21 @@ export async function requestOpenRouterJson({
         latencyMs,
         errorMessage: `status ${response.status}`,
       });
+      // 401 from OpenRouter means the API key is invalid, revoked, or the
+      // account is out of credits / suspended. This is an auth-config issue,
+      // not a model-availability issue — failing over to the next candidate
+      // model won't help. Throw immediately with a clear, user-facing message
+      // so the run surfaces "update your OpenRouter key" instead of a raw
+      // JSON dump from the upstream API.
+      if (response.status === 401) {
+        const err = new Error(
+          "OpenRouter API key is invalid, expired, or revoked. Update OPENROUTER_API_KEY in Vercel (Project Settings → Environment Variables) for both Preview and Production, then redeploy.",
+        );
+        /** @type {Error & { code?: string; httpStatus?: number }} */ (err).code =
+          "OPENROUTER_AUTH_FAILED";
+        /** @type {Error & { code?: string; httpStatus?: number }} */ (err).httpStatus = 401;
+        throw err;
+      }
       lastError = new Error(
         `OpenRouter API request failed for ${candidateModel} with status ${response.status}: ${JSON.stringify(payload)}`,
       );

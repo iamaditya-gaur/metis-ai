@@ -364,6 +364,17 @@ export async function generateOpenRouterReportSummary(promptInput) {
   const latencyMs = Math.round(performance.now() - startedAt);
 
   if (!response.ok) {
+    // 401 = invalid / expired / revoked API key, or suspended account.
+    // Surface a clean, actionable message instead of a raw payload dump so
+    // the UI can show the operator what to do next.
+    if (response.status === 401) {
+      const err = new Error(
+        "OpenRouter API key is invalid, expired, or revoked. Update OPENROUTER_API_KEY in Vercel (Project Settings → Environment Variables) for both Preview and Production, then redeploy.",
+      );
+      err.code = "OPENROUTER_AUTH_FAILED";
+      err.httpStatus = 401;
+      throw err;
+    }
     throw new Error(
       `OpenRouter API request failed with status ${response.status}: ${JSON.stringify(payload)}`,
     );
