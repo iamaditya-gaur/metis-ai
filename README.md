@@ -1,10 +1,10 @@
 # Metis AI 👋
 
-Hey. This is Metis, a small product I built to take the boring last mile out of Meta Ads reporting. It pulls live data, writes a factual operator view, and then rewrites that into a client message that actually sounds like *you*.
+Hey. Metis is what I built instead of manually rewriting my Meta Ads reports in Slack every Friday. It pulls live data, writes a factual operator view, and then rewrites that into a client message that actually sounds like *you*.
 
 On my own client work it saves me roughly **45 minutes a week and an hour every month.** Small, but every weekend back is worth it.
 
-## Try It 🚀
+## Try It
 
 - **Reporting flow:** [metis-ai-nine.vercel.app/reporting](https://metis-ai-nine.vercel.app/reporting)
 - **Admin trace UI** (gated): [metis-ai-nine.vercel.app/admin/runs](https://metis-ai-nine.vercel.app/admin/runs)
@@ -24,7 +24,7 @@ Either way the last mile happens manually, in Slack or docs or WhatsApp.
 
 That last mile is what Metis is built to automate.
 
-## What It Does ✨
+## What It Does
 
 - Pulls live Meta Ads insights for the account and window you pick
 - Builds a factual operator view: spend, key metric movements, what changed, risks, suggested next actions
@@ -33,7 +33,7 @@ That last mile is what Metis is built to automate.
 
 About 10 seconds end to end.
 
-## How The Agents Work Together 🧠
+## How The Agents Work Together
 
 ```
 [ Meta Ads API ]
@@ -73,7 +73,7 @@ Two things worth knowing about the back-and-forth:
 - **Direction-flip fact check.** A regex sweep over UP / DOWN, PAUSE / RESUME, CREATE / DELETE pairs catches the failure mode where the model flips a verb. If violations survive one regen, the run falls back to the operator-view message rather than ship a wrong claim.
 - **Every LLM call captured durably.** Model picked (including the fallback chain), prompts, raw response, tokens, cost, latency. Persisted to Postgres, viewable as a trace tree at `/admin/runs`.
 
-## Stack 🛠️
+## Stack
 
 - Next.js 16, TypeScript, Tailwind on Vercel
 - OpenRouter as the LLM gateway with multi-model fallback (Claude Sonnet, GPT family)
@@ -93,7 +93,7 @@ Being honest about what's still rough:
 - Reporting eval script exists but isn't wired into CI.
 - Builder mode (`/builder`, paused-draft creation) is functional but less polished than reporting.
 
-## Upcoming 🛣️
+## Upcoming
 
 - Email delivery (alongside Slack)
 - Workflow automation, scheduled and event-triggered runs without manual kickoff
@@ -101,7 +101,7 @@ Being honest about what's still rough:
 - State management for a smoother UX across the reporting flow
 - Design and interface polish
 
-## Recently Shipped 📦
+## Recently Shipped
 
 - **2026-05-25, Tone fidelity + fact guardrails.** Compose decoupled from the factual draft, voice and fact judges in parallel, deterministic direction-flip checks, objective-aware metric selection. [PR #1](https://github.com/iamaditya-gaur/metis-ai/pull/1)
 - **2026-04-26, Observability v1.** Per-LLM-call tokens, cost, latency, fallback chain captured. Supabase persistence, `/admin/runs` trace UI behind an HMAC-signed cookie gate. [PR #2](https://github.com/iamaditya-gaur/metis-ai/pull/2) · [PR #3](https://github.com/iamaditya-gaur/metis-ai/pull/3)
