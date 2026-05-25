@@ -15,14 +15,21 @@ import { writeStructuredRunLog } from "../../../scripts/pocs/lib/observability.m
 
 import { persistRunToSupabase } from "@/lib/metis/observability/supabase";
 import {
+  buildCanonicalActivities,
   buildToneProfile,
   composeClientMessage,
+  gradeFactMatch,
   gradeVoiceMatch,
-  summarizeActivitiesForPrompt,
   type ActivityRecord,
+  type CanonicalActivity,
   type OpenRouterPrompts,
   type OpenRouterUsage,
 } from "@/lib/metis/tone";
+import {
+  checkActivityDirections,
+  violationsToCritique,
+  type FactCheckViolation,
+} from "@/lib/metis/fact-check";
 import type {
   MetaActivitySummary,
   ReportingRunRequest,
@@ -45,7 +52,8 @@ type LlmCallRecord = {
     | "tone-profile"
     | "tone-compose"
     | "tone-compose-regenerate"
-    | "voice-judge";
+    | "voice-judge"
+    | "fact-judge";
   model: string | null;
   status: "success" | "skipped" | "error";
   errorMessage: string | null;
@@ -179,8 +187,13 @@ export async function runReportingWorkflow(
   let voiceScore: number | null = null;
   let voiceMismatches: string[] = [];
   let voiceRegenerated = false;
+  let factScore: number | null = null;
+  let factMismatches: string[] = [];
+  let factViolations: FactCheckViolation[] = [];
+  let factCheckBlocked = false;
   let metaActivities: MetaActivitySummary | null = null;
   let changesSummary: string | null = null;
+  let canonicalActivities: CanonicalActivity[] = [];
 
   if (toneProfile?.contentVocabulary.mentionsChanges) {
     try {
@@ -199,8 +212,11 @@ export async function runReportingWorkflow(
           note: activityResponse.error?.message ?? null,
         };
       } else {
-        const summaryText = summarizeActivitiesForPrompt(activityResponse.activities);
+        const { summary: summaryText, canonical } = buildCanonicalActivities(
+          activityResponse.activities,
+        );
         changesSummary = summaryText || null;
+        canonicalActivities = canonical;
         metaActivities = {
           count: activityResponse.activities.length,
           summary: summaryText,
@@ -230,6 +246,55 @@ export async function runReportingWorkflow(
     };
   }
 
+  /**
+   * Build the SOURCE_FACTS bundle once. The LLM fact-judge sees the same
+   * structured view the compose step does, minus voice examples.
+   */
+  function buildSourceFactsBundle(): string {
+    const lines: string[] = [];
+    lines.push(`Date range: ${snapshot.dateRange.label}`);
+    lines.push(`Row count: ${snapshot.rowCount}`);
+    lines.push(`Executive summary: ${report.executiveSummary}`);
+    const whatChanged: string[] = Array.isArray(report.whatChanged)
+      ? report.whatChanged
+      : [];
+    if (whatChanged.length) {
+      lines.push("What changed:");
+      whatChanged.forEach((item: string) => lines.push(`- ${item}`));
+    }
+    const risks: string[] = Array.isArray(report.risks) ? report.risks : [];
+    if (risks.length) {
+      lines.push("Risks:");
+      risks.forEach((item: string) => lines.push(`- ${item}`));
+    }
+    const nextActions: string[] = Array.isArray(report.nextActions)
+      ? report.nextActions
+      : [];
+    if (nextActions.length) {
+      lines.push("Next actions:");
+      nextActions.forEach((item: string) => lines.push(`- ${item}`));
+    }
+    if (changesSummary) {
+      lines.push("");
+      lines.push("CHANGES (structured campaign edits during the period):");
+      lines.push(changesSummary);
+    }
+    if (snapshot.totals) {
+      const t = snapshot.totals;
+      lines.push("");
+      lines.push("Totals:");
+      if (t.spend !== null) lines.push(`- spend: $${t.spend}`);
+      if (t.impressions !== null) lines.push(`- impressions: ${t.impressions}`);
+      if (t.reach !== null) lines.push(`- reach: ${t.reach}`);
+      if (t.clicks !== null) lines.push(`- clicks: ${t.clicks}`);
+      if (t.ctr !== null) lines.push(`- ctr: ${t.ctr}%`);
+      if (t.cpm !== null) lines.push(`- cpm: $${t.cpm}`);
+      if (t.cpc !== null) lines.push(`- cpc: $${t.cpc}`);
+      if (t.frequency !== null) lines.push(`- frequency: ${t.frequency}`);
+    }
+    return lines.join("\n");
+  }
+
   if (toneExamples && toneProfile) {
     try {
       const composed = await composeClientMessage({
@@ -251,72 +316,157 @@ export async function runReportingWorkflow(
       });
       let activeMessage = composed.message;
 
-      try {
-        const verdict = await gradeVoiceMatch({
+      const sourceFacts = buildSourceFactsBundle();
+
+      // Run voice + fact judges in parallel. allSettled so one failure
+      // never blocks the other; never blocks the run.
+      const [voiceSettled, factSettled] = await Promise.allSettled([
+        gradeVoiceMatch({
           clientMessage: composed.message,
           samples: composed.samples,
-        });
-        voiceScore = verdict.score;
-        voiceMismatches = verdict.mismatches;
+        }),
+        gradeFactMatch({
+          clientMessage: composed.message,
+          sourceFacts,
+        }),
+      ]);
+
+      let voiceShouldRegenerate = false;
+      let factShouldRegenerate = false;
+      const combinedCritique: string[] = [];
+
+      if (voiceSettled.status === "fulfilled") {
+        const v = voiceSettled.value;
+        voiceScore = v.score;
+        voiceMismatches = v.mismatches;
+        voiceShouldRegenerate = v.shouldRegenerate;
+        combinedCritique.push(...v.mismatches);
         llmCalls.push({
           step: "voice-judge",
-          model: verdict.model,
-          status: verdict.model ? "success" : "skipped",
+          model: v.model,
+          status: v.model ? "success" : "skipped",
           errorMessage: null,
-          usage: verdict.usage,
-          prompts: verdict.prompts,
+          usage: v.usage,
+          prompts: v.prompts,
         });
-
-        if (verdict.shouldRegenerate) {
-          try {
-            const revised = await composeClientMessage({
-              report,
-              snapshot,
-              toneExamples,
-              toneProfile,
-              critiqueFeedback: verdict.mismatches,
-              changesSummary,
-            });
-            activeMessage = revised.message;
-            voiceRegenerated = true;
-            toneRewriteModel = revised.model;
-            toneRewriteUsage = revised.usage;
-            llmCalls.push({
-              step: "tone-compose-regenerate",
-              model: revised.model,
-              status: "success",
-              errorMessage: null,
-              usage: revised.usage,
-              prompts: revised.prompts,
-            });
-          } catch (regenError) {
-            // Keep the first attempt when revision fails; surface in observability via voiceScore.
-            llmCalls.push({
-              step: "tone-compose-regenerate",
-              model: null,
-              status: "error",
-              errorMessage:
-                regenError instanceof Error
-                  ? regenError.message
-                  : "Unknown regenerate error.",
-              usage: null,
-              prompts: null,
-            });
-          }
-        }
-      } catch (judgeError) {
-        // Grading failure should not block the run — accept the first attempt silently.
+      } else {
         llmCalls.push({
           step: "voice-judge",
           model: null,
           status: "error",
           errorMessage:
-            judgeError instanceof Error
-              ? judgeError.message
+            voiceSettled.reason instanceof Error
+              ? voiceSettled.reason.message
               : "Unknown voice-judge error.",
           usage: null,
           prompts: null,
         });
+      }
+
+      if (factSettled.status === "fulfilled") {
+        const f = factSettled.value;
+        factScore = f.score;
+        factMismatches = f.mismatches;
+        factShouldRegenerate = f.shouldRegenerate;
+        combinedCritique.push(...f.mismatches);
+        llmCalls.push({
+          step: "fact-judge",
+          model: f.model,
+          status: f.model ? "success" : "skipped",
+          errorMessage: null,
+          usage: f.usage,
+          prompts: f.prompts,
+        });
+      } else {
+        llmCalls.push({
+          step: "fact-judge",
+          model: null,
+          status: "error",
+          errorMessage:
+            factSettled.reason instanceof Error
+              ? factSettled.reason.message
+              : "Unknown fact-judge error.",
+          usage: null,
+          prompts: null,
+        });
+      }
+
+      // Deterministic post-check: scan for direction flips on the actual
+      // CHANGES list. This is the safety floor — if a flip survives the
+      // regen below, we refuse to ship and fall back.
+      const deterministicCheck = checkActivityDirections(
+        composed.message,
+        canonicalActivities,
+      );
+      factViolations = deterministicCheck.violations;
+      if (deterministicCheck.violations.length) {
+        combinedCritique.push(
+          ...violationsToCritique(deterministicCheck.violations),
+        );
+      }
+
+      const shouldRegenerate =
+        voiceShouldRegenerate ||
+        factShouldRegenerate ||
+        deterministicCheck.violations.length > 0;
+
+      if (shouldRegenerate && combinedCritique.length) {
+        try {
+          const revised = await composeClientMessage({
+            report,
+            snapshot,
+            toneExamples,
+            toneProfile,
+            critiqueFeedback: combinedCritique,
+            changesSummary,
+          });
+          activeMessage = revised.message;
+          voiceRegenerated = true;
+          toneRewriteModel = revised.model;
+          toneRewriteUsage = revised.usage;
+          llmCalls.push({
+            step: "tone-compose-regenerate",
+            model: revised.model,
+            status: "success",
+            errorMessage: null,
+            usage: revised.usage,
+            prompts: revised.prompts,
+          });
+
+          // Re-run the deterministic check on the regenerated message.
+          // If a direction flip survives, we refuse to ship the regenerated
+          // message and fall back to the operator-view slackMessage. Voice
+          // mismatch alone does NOT trigger fallback — only fact-violations.
+          const recheck = checkActivityDirections(
+            revised.message,
+            canonicalActivities,
+          );
+          if (recheck.violations.length) {
+            factViolations = recheck.violations;
+            factCheckBlocked = true;
+            activeMessage = report.slackMessage;
+          } else {
+            factViolations = [];
+          }
+        } catch (regenError) {
+          llmCalls.push({
+            step: "tone-compose-regenerate",
+            model: null,
+            status: "error",
+            errorMessage:
+              regenError instanceof Error
+                ? regenError.message
+                : "Unknown regenerate error.",
+            usage: null,
+            prompts: null,
+          });
+          // If regen failed and the first draft had fact violations,
+          // fall back rather than ship a known-wrong message.
+          if (deterministicCheck.violations.length) {
+            factCheckBlocked = true;
+            activeMessage = report.slackMessage;
+          }
+        }
       }
 
       finalSlackMessage = activeMessage;
@@ -420,12 +570,22 @@ export async function runReportingWorkflow(
       },
       {
         step: "tone-rewrite",
-        status: toneRewriteBlocked ? "fallback" : toneProfile ? "success" : "skipped",
+        status: toneRewriteBlocked
+          ? "fallback"
+          : factCheckBlocked
+            ? "fact-fallback"
+            : toneProfile
+              ? "success"
+              : "skipped",
         toneProfile,
         sampleCount: toneProfile?.sampleCount ?? 0,
         voiceScore,
         voiceRegenerated,
         voiceMismatches,
+        factScore,
+        factMismatches,
+        factViolations,
+        factCheckBlocked,
         changesUsed: Boolean(changesSummary),
         model: toneRewriteModel,
         usage: toneRewriteUsage,
@@ -491,6 +651,10 @@ export async function runReportingWorkflow(
     voiceScore,
     voiceMismatches,
     voiceRegenerated,
+    factScore,
+    factMismatches,
+    factViolations,
+    factCheckBlocked,
     slackDelivery,
     slackDeliveryBlocked,
     metaActivities,
