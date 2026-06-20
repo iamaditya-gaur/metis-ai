@@ -2145,134 +2145,253 @@ input {
 
 /* ---------------------------------------------------------------------------
    Auth pages (/login, /signup, /reset-password)
+   Rebuilt round 2: no backdrop-filter, no overlays, crisp Inter web font,
+   clean centered card.
    --------------------------------------------------------------------------- */
 
-.auth-root {
+.auth-shell {
+  position: relative;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  font-family: var(--font-sans), "Inter", system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #1d1a16;
+  background:
+    radial-gradient(ellipse at top, #f3ead7 0%, #e7dcc8 50%, #ddd2bf 100%);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .auth-main {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1.6rem;
-  flex: 1 1 auto;
-  padding: 3.5rem 1.5rem 4rem;
-  max-width: 100%;
+  gap: 1.8rem;
+  padding: 3rem 1.25rem 4rem;
+  width: 100%;
 }
 
 .auth-brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.65rem;
-  color: var(--product-ink);
+  gap: 0.6rem;
+  color: #1d1a16;
   text-decoration: none;
-  font-family: var(--font-product-display);
+  font-family: var(--font-display-sans), "Inter Tight", "Inter", system-ui, sans-serif;
   font-weight: 700;
-  letter-spacing: 0.04em;
   font-size: 1.05rem;
+  letter-spacing: -0.01em;
 }
 
 .auth-brand-mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.1rem;
-  height: 2.1rem;
+  width: 2rem;
+  height: 2rem;
   border-radius: 999px;
-  border: 1px solid var(--product-line-strong);
-  background:
-    linear-gradient(135deg, rgb(213 93 49 / 0.94), rgb(191 75 34 / 0.96));
+  background: linear-gradient(135deg, #d55d31, #b94a25);
   color: #fff9f2;
-  font-weight: 700;
-  font-size: 1rem;
-  letter-spacing: 0;
+  font-weight: 800;
+  font-size: 0.95rem;
+  box-shadow: 0 6px 14px -6px rgba(155, 60, 30, 0.5);
 }
 
 .auth-brand-word {
-  font-size: 1.18rem;
-  font-weight: 600;
+  font-size: 1.15rem;
+  font-weight: 700;
 }
 
 .auth-card {
   width: 100%;
-  max-width: 30rem;
+  max-width: 26rem;
   display: flex;
   flex-direction: column;
-  gap: 1.4rem;
-  padding: 2.1rem 2rem 2rem;
-  border-radius: 1.4rem;
-  border: 1px solid var(--product-line);
-  background: var(--product-glass-strong);
-  box-shadow: 0 28px 60px -36px var(--product-shadow);
-  backdrop-filter: blur(12px) saturate(1.05);
-  -webkit-backdrop-filter: blur(12px) saturate(1.05);
+  gap: 1.5rem;
+  padding: 2rem 1.9rem 1.6rem;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(63, 54, 44, 0.10);
+  background: #fdf7e9;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 16px 40px -22px rgba(71, 50, 22, 0.18),
+    0 6px 14px -10px rgba(71, 50, 22, 0.12);
 }
 
 .auth-card-header {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.45rem;
+}
+
+.auth-card-header .product-eyebrow {
+  font-family: var(--font-sans), "Inter", system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8a7d6c;
 }
 
 .auth-card-title {
-  font-family: var(--font-product-display);
-  font-weight: 700;
-  font-size: 1.65rem;
-  line-height: 1.15;
-  color: var(--product-ink);
   margin: 0;
-  letter-spacing: -0.005em;
+  font-family: var(--font-display-sans), "Inter Tight", "Inter", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 1.55rem;
+  line-height: 1.2;
+  letter-spacing: -0.018em;
+  color: #1d1a16;
 }
 
 .auth-card-copy {
   margin: 0;
-  color: var(--product-ink-soft);
-  font-size: 0.95rem;
-  line-height: 1.5;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: #5a5146;
 }
 
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 1.05rem;
+  gap: 1rem;
+}
+
+.auth-form .product-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.auth-form .product-label {
+  font-family: var(--font-sans), "Inter", system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #5a5146;
+}
+
+.auth-form .product-input,
+.auth-form .product-textarea {
+  width: 100%;
+  font-family: var(--font-sans), "Inter", system-ui, sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: #1d1a16;
+  padding: 0.72rem 0.85rem;
+  border-radius: 0.6rem;
+  border: 1px solid rgba(63, 54, 44, 0.22);
+  background: #fffbf2;
+  box-shadow: 0 1px 0 rgba(63, 54, 44, 0.04) inset;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    background 120ms ease;
+}
+
+.auth-form .product-input::placeholder,
+.auth-form .product-textarea::placeholder {
+  color: #a59882;
+}
+
+.auth-form .product-input:hover,
+.auth-form .product-textarea:hover {
+  border-color: rgba(63, 54, 44, 0.36);
+}
+
+.auth-form .product-input:focus,
+.auth-form .product-textarea:focus {
+  outline: none;
+  border-color: #335cdb;
+  box-shadow:
+    0 0 0 3px rgba(51, 92, 219, 0.22),
+    0 1px 0 rgba(63, 54, 44, 0.04) inset;
+  background: #ffffff;
+}
+
+.auth-form .product-help {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #7d7264;
 }
 
 .auth-form .product-button {
-  margin-top: 0.2rem;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
+  gap: 0.5rem;
+  padding: 0.78rem 1.2rem;
+  border-radius: 0.6rem;
+  border: 1px solid transparent;
+  font-family: var(--font-sans), "Inter", system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: #fff9f2;
+  background: linear-gradient(180deg, #d55d31 0%, #be4a23 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 8px 18px -10px rgba(155, 60, 30, 0.55);
+  cursor: pointer;
+  transition: transform 100ms ease, box-shadow 120ms ease, background 120ms ease;
+  text-transform: none;
+  margin-top: 0.2rem;
+}
+
+.auth-form .product-button:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 12px 22px -10px rgba(155, 60, 30, 0.6);
+}
+
+.auth-form .product-button:active {
+  transform: translateY(0);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 5px 14px -10px rgba(155, 60, 30, 0.5);
+}
+
+.auth-form .product-button:disabled,
+.auth-form .product-button[data-loading="true"] {
+  cursor: progress;
+  opacity: 0.78;
+  transform: none;
 }
 
 .auth-feedback {
-  border-radius: 0.85rem;
+  margin: 0;
   padding: 0.75rem 0.9rem;
-  font-size: 0.9rem;
-  line-height: 1.45;
+  border-radius: 0.6rem;
   border: 1px solid transparent;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .auth-feedback-error {
-  background: rgb(167 75 43 / 0.12);
-  border-color: rgb(167 75 43 / 0.34);
-  color: var(--product-warning);
+  background: #fdecea;
+  border-color: rgba(167, 75, 43, 0.32);
+  color: #8a3517;
 }
 
 .auth-feedback-success {
-  background: rgb(34 93 68 / 0.12);
-  border-color: rgb(34 93 68 / 0.32);
-  color: var(--product-success);
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
+  background: #ecf6f0;
+  border-color: rgba(34, 93, 68, 0.32);
+  color: #1f5a3e;
 }
 
 .auth-feedback-title {
-  font-weight: 700;
   margin: 0;
-  font-size: 0.95rem;
+  font-weight: 700;
+  font-size: 0.9rem;
 }
 
 .auth-card-footer {
@@ -2280,27 +2399,33 @@ input {
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  gap: 0.55rem;
-  font-size: 0.88rem;
-  color: var(--product-ink-soft);
-  padding-top: 0.35rem;
-  border-top: 1px solid var(--product-line);
-  padding-block: 1rem 0.2rem;
+  gap: 0.5rem;
+  font-size: 0.86rem;
+  color: #6d6353;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(63, 54, 44, 0.10);
 }
 
 .auth-card-footer-sep {
-  color: var(--product-line-strong);
+  color: rgba(63, 54, 44, 0.3);
 }
 
 .auth-link {
-  color: var(--product-info);
+  color: #335cdb;
   text-decoration: none;
+  font-weight: 500;
   border-bottom: 1px solid transparent;
-  transition: border-color 120ms ease;
+  transition: border-color 120ms ease, color 120ms ease;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
 }
 
 .auth-link:hover {
-  border-bottom-color: var(--product-info);
+  color: #2247b5;
+  border-bottom-color: currentColor;
 }
 
 .auth-link-strong {
@@ -2308,13 +2433,12 @@ input {
 }
 
 .auth-footnote {
-  color: var(--product-ink-soft);
+  margin: 0;
   font-size: 0.78rem;
+  line-height: 1.45;
+  color: #7d7264;
   text-align: center;
   max-width: 28rem;
-  line-height: 1.45;
-  margin: 0;
-  opacity: 0.85;
 }
 
 /* ---------------------------------------------------------------------------
