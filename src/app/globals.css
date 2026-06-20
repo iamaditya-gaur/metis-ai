@@ -2142,3 +2142,516 @@ input {
     height: 100%;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Auth pages (/login, /signup, /reset-password)
+   --------------------------------------------------------------------------- */
+
+.auth-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.auth-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.6rem;
+  flex: 1 1 auto;
+  padding: 3.5rem 1.5rem 4rem;
+  max-width: 100%;
+}
+
+.auth-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--product-ink);
+  text-decoration: none;
+  font-family: var(--font-product-display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-size: 1.05rem;
+}
+
+.auth-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 999px;
+  border: 1px solid var(--product-line-strong);
+  background:
+    linear-gradient(135deg, rgb(213 93 49 / 0.94), rgb(191 75 34 / 0.96));
+  color: #fff9f2;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+
+.auth-brand-word {
+  font-size: 1.18rem;
+  font-weight: 600;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 30rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  padding: 2.1rem 2rem 2rem;
+  border-radius: 1.4rem;
+  border: 1px solid var(--product-line);
+  background: var(--product-glass-strong);
+  box-shadow: 0 28px 60px -36px var(--product-shadow);
+  backdrop-filter: blur(12px) saturate(1.05);
+  -webkit-backdrop-filter: blur(12px) saturate(1.05);
+}
+
+.auth-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.auth-card-title {
+  font-family: var(--font-product-display);
+  font-weight: 700;
+  font-size: 1.65rem;
+  line-height: 1.15;
+  color: var(--product-ink);
+  margin: 0;
+  letter-spacing: -0.005em;
+}
+
+.auth-card-copy {
+  margin: 0;
+  color: var(--product-ink-soft);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.05rem;
+}
+
+.auth-form .product-button {
+  margin-top: 0.2rem;
+  justify-content: center;
+}
+
+.auth-feedback {
+  border-radius: 0.85rem;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  border: 1px solid transparent;
+}
+
+.auth-feedback-error {
+  background: rgb(167 75 43 / 0.12);
+  border-color: rgb(167 75 43 / 0.34);
+  color: var(--product-warning);
+}
+
+.auth-feedback-success {
+  background: rgb(34 93 68 / 0.12);
+  border-color: rgb(34 93 68 / 0.32);
+  color: var(--product-success);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.auth-feedback-title {
+  font-weight: 700;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.auth-card-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.88rem;
+  color: var(--product-ink-soft);
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--product-line);
+  padding-block: 1rem 0.2rem;
+}
+
+.auth-card-footer-sep {
+  color: var(--product-line-strong);
+}
+
+.auth-link {
+  color: var(--product-info);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 120ms ease;
+}
+
+.auth-link:hover {
+  border-bottom-color: var(--product-info);
+}
+
+.auth-link-strong {
+  font-weight: 700;
+}
+
+.auth-footnote {
+  color: var(--product-ink-soft);
+  font-size: 0.78rem;
+  text-align: center;
+  max-width: 28rem;
+  line-height: 1.45;
+  margin: 0;
+  opacity: 0.85;
+}
+
+/* ---------------------------------------------------------------------------
+   /app/connections — saved Meta token management
+   --------------------------------------------------------------------------- */
+
+.connections-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+}
+
+.connections-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.2rem;
+}
+
+@media (min-width: 1080px) {
+  .connections-grid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  }
+}
+
+.connections-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.connections-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.95rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--product-line);
+  background: var(--product-glass);
+}
+
+.connections-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.connections-row-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.connections-row-label {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--product-ink);
+}
+
+.connections-row-meta {
+  margin: 0;
+  color: var(--product-ink-soft);
+  font-size: 0.82rem;
+}
+
+.connections-empty {
+  padding: 1rem 0.2rem 0.2rem;
+}
+
+.connections-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.connections-add-form .product-button {
+  align-self: flex-start;
+}
+
+/* ---------------------------------------------------------------------------
+   Sidebar refinements for authed shell
+   --------------------------------------------------------------------------- */
+
+.product-brand-link {
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 120ms ease;
+}
+
+.product-brand-link:hover {
+  opacity: 0.85;
+}
+
+.product-sidebar-footer {
+  margin-top: auto;
+  padding-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.product-user-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.85rem 0.9rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--product-line);
+  background: var(--product-glass);
+}
+
+.product-user-card .product-button {
+  align-self: flex-start;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.78rem;
+}
+
+/* ---------------------------------------------------------------------------
+   /app/reports
+   --------------------------------------------------------------------------- */
+
+.reports-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.9rem;
+  padding: 0.4rem 0 0.2rem;
+}
+
+.authed-reports {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.authed-reports-picker {
+  align-self: stretch;
+}
+
+/* ---------------------------------------------------------------------------
+   /app/history + /app/settings
+   --------------------------------------------------------------------------- */
+
+.history-empty {
+  display: flex;
+  justify-content: flex-start;
+  padding: 0.4rem 0 0.2rem;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.history-row {
+  border-radius: 1rem;
+  border: 1px solid var(--product-line);
+  background: var(--product-glass);
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+
+.history-row:hover {
+  border-color: var(--product-line-strong);
+  transform: translateY(-1px);
+}
+
+.history-row-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.95rem 1.05rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.history-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.history-row-date {
+  font-size: 0.84rem;
+  color: var(--product-ink-soft);
+  font-weight: 600;
+}
+
+.history-row-summary {
+  margin: 0;
+  color: var(--product-ink);
+  line-height: 1.45;
+}
+
+.history-row-meta {
+  display: flex;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  color: var(--product-ink-soft);
+}
+
+.history-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.history-detail-summary {
+  margin: 0;
+  line-height: 1.55;
+  color: var(--product-ink);
+}
+
+.history-detail-metrics {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.7rem;
+}
+
+@media (min-width: 720px) {
+  .history-detail-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1080px) {
+  .history-detail-metrics {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.history-detail-block summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--product-info);
+}
+
+.history-detail-pre {
+  margin: 0.7rem 0 0;
+  padding: 0.85rem 0.95rem;
+  border-radius: 0.7rem;
+  background: rgb(0 0 0 / 0.06);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  overflow-x: auto;
+  max-height: 400px;
+}
+
+.history-detail-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* settings */
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.2rem;
+}
+
+@media (min-width: 1080px) {
+  .settings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .settings-grid > :nth-child(3) {
+    grid-column: span 2;
+  }
+}
+
+.settings-readonly {
+  margin: 0;
+  padding: 0.7rem 0.95rem;
+  border-radius: 0.85rem;
+  border: 1px dashed var(--product-line);
+  background: rgb(255 255 255 / 0.35);
+  color: var(--product-ink-soft);
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+   /reporting demo sign-up nudge (post-generation conversion card)
+   --------------------------------------------------------------------------- */
+
+.signup-nudge {
+  margin-top: 1.4rem;
+  padding: 1.5rem 1.6rem;
+  border-radius: 1.3rem;
+  border: 1px solid var(--product-line-strong);
+  background:
+    linear-gradient(135deg, rgb(213 93 49 / 0.10), rgb(51 92 219 / 0.08)),
+    var(--product-glass-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  box-shadow: 0 28px 60px -36px var(--product-shadow);
+}
+
+@media (min-width: 920px) {
+  .signup-nudge {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+  }
+}
+
+.signup-nudge-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.signup-nudge-title {
+  margin: 0;
+  font-family: var(--font-product-display);
+  font-weight: 700;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  color: var(--product-ink);
+  letter-spacing: -0.005em;
+}
+
+.signup-nudge-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}

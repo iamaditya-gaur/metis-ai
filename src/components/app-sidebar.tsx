@@ -3,67 +3,54 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import type { AccountBadge } from "@/lib/metis/types";
+import { signOutAction } from "@/app/(auth)/actions";
 
 const navItems = [
   {
-    href: "/app",
-    label: "Mission Control",
-    copy: "Choose a workflow, keep account context visible, and track recent runs.",
+    href: "/app/reports",
+    label: "Reports",
+    copy: "Pick a connection, pick a window, generate a client-ready summary.",
   },
   {
-    href: "/app/setup",
-    label: "Setup",
-    copy: "Check readiness, confirm accessible accounts, and keep defaults obvious.",
+    href: "/app/history",
+    label: "History",
+    copy: "Re-open any report you have generated before.",
   },
   {
-    href: "/app/reporting",
-    label: "Reporting",
-    copy: "Run factual reporting first, then apply client-safe tone context.",
+    href: "/app/connections",
+    label: "Connections",
+    copy: "Manage saved Meta tokens. One per agency client or account.",
   },
   {
-    href: "/app/reporting-new",
-    label: "Reporting New",
-    copy: "Use the redesigned reporting desk with top-line controls and parallel output panes.",
-  },
-  {
-    href: "/app/builder",
-    label: "Builder",
-    copy: "Preview strategy, copy, and paused draft actions before any write.",
-  },
-  {
-    href: "/app/runs",
-    label: "Runs",
-    copy: "Inspect recent reporting and builder runs from the local log.",
+    href: "/app/settings",
+    label: "Settings",
+    copy: "Email, password, and where summaries get delivered.",
   },
 ];
 
 type AppSidebarProps = {
-  accounts: AccountBadge[];
+  user: { email: string | null } | null;
 };
 
-export function AppSidebar({ accounts }: AppSidebarProps) {
+export function AppSidebar({ user }: AppSidebarProps) {
   const pathname = usePathname();
 
   return (
     <aside className="product-sidebar">
-      <div className="product-brand">
+      <Link href="/app/reports" className="product-brand product-brand-link">
         <span className="product-brand-mark">M</span>
         <div>
           <p className="product-brand-title">Metis AI</p>
           <p className="product-brand-copy">
-            Reporting and builder workflows for Meta operators. Local-first until the app is stable.
+            Meta ad reports that sound like you wrote them.
           </p>
         </div>
-      </div>
+      </Link>
 
       <nav className="product-nav" aria-label="Primary">
         {navItems.map((item) => {
           const isActive =
-            item.href === "/app"
-              ? pathname === item.href
-              : pathname === item.href || pathname.startsWith(`${item.href}/`);
-
+            pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link
               key={item.href}
@@ -78,18 +65,27 @@ export function AppSidebar({ accounts }: AppSidebarProps) {
         })}
       </nav>
 
-      <div className="product-account-stack">
-        {accounts.map((account) => (
-          <div key={account.role} className="product-account-card">
-            <span className="product-account-role">{account.role}</span>
-            <strong className="product-account-label">{account.label}</strong>
+      <div className="product-sidebar-footer">
+        {user ? (
+          <div className="product-user-card">
+            <span className="product-account-role">Signed in</span>
+            <strong className="product-account-label">{user.email}</strong>
+            <form action={signOutAction}>
+              <button
+                type="submit"
+                className="product-button"
+                data-variant="secondary"
+              >
+                Sign out
+              </button>
+            </form>
           </div>
-        ))}
+        ) : (
+          <Link href="/login" className="product-button" data-variant="secondary">
+            Sign in
+          </Link>
+        )}
       </div>
-
-      <p className="product-sidebar-footnote">
-        Safety rule stays locked: reporting can read broadly, builder can write narrowly, and every write remains paused-only.
-      </p>
     </aside>
   );
 }

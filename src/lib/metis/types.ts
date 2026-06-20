@@ -133,6 +133,12 @@ export type ReportingRunRequest = {
   dateEnd: string;
   toneExamples: string;
   accessToken?: string;
+  /**
+   * Supabase auth.users.id. Threaded through to `metis_runs.user_id` so an
+   * authed user can see their own runs in /app/history. Null for the public
+   * /reporting demo path.
+   */
+  userId?: string | null;
 };
 
 export type ReportingRunResponse = {

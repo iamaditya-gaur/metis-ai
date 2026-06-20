@@ -5,13 +5,20 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { GlassPanel } from "@/components/glass-panel";
 import { MetricTile } from "@/components/metric-tile";
 import { ProcessingIndicator, ProcessingOverlay } from "@/components/processing-overlay";
+import { SignUpNudge } from "@/components/sign-up-nudge";
 import { StatusPill } from "@/components/status-pill";
 import type { AccountOption, ReportingRunRequest, ReportingRunResponse } from "@/lib/metis/types";
 
 type ReportingStudioProps = {
   accounts: AccountOption[];
   accessToken?: string;
-  mode?: "workspace" | "standalone";
+  /**
+   * When set, the reporting API call sends `connectionId` instead of
+   * `accessToken` and the server decrypts the saved token. Used by
+   * /app/reports for authed users.
+   */
+  connectionId?: string;
+  mode?: "workspace" | "standalone" | "authed";
 };
 
 type UploadedToneFile = {
@@ -174,6 +181,7 @@ function buildMetrics(result: ReportingRunResponse | null) {
 export function ReportingStudio({
   accounts,
   accessToken,
+  connectionId,
   mode = "workspace",
 }: ReportingStudioProps) {
   const toneFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -345,12 +353,14 @@ export function ReportingStudio({
       return;
     }
 
-    const payload: ReportingRunRequest = {
+    const payload: ReportingRunRequest & { connectionId?: string } = {
       accountId,
       dateStart,
       dateEnd,
       toneExamples,
-      accessToken,
+      // Authed callers send a connectionId (server decrypts the saved token).
+      // Standalone / workspace callers send the pasted accessToken.
+      ...(connectionId ? { connectionId } : { accessToken }),
     };
 
     startTransition(async () => {
@@ -698,6 +708,8 @@ export function ReportingStudio({
           </div>
         </GlassPanel>
       </div>
+
+      {isStandalone && result ? <SignUpNudge /> : null}
     </div>
   );
 }

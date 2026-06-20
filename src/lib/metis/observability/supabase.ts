@@ -14,6 +14,11 @@ export type PersistRunPayload = {
   summary: string | null;
   startedAt: string;
   finishedAt: string;
+  /**
+   * Supabase auth.users.id as text (the metis_runs.user_id column is text
+   * for legacy reasons). Null for unauthenticated demo runs.
+   */
+  userId?: string | null;
   totals?: {
     promptTokens: number | null;
     completionTokens: number | null;
@@ -70,6 +75,7 @@ export async function persistRunToSupabase(
       flow_type: payload.flowType,
       status: payload.status,
       env: resolveEnvLabel(),
+      user_id: payload.userId ?? null,
       selected_account_id: payload.selectedAccountId,
       model: payload.model,
       summary: payload.summary,

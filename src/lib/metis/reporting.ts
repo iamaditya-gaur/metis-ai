@@ -567,6 +567,7 @@ export async function runReportingWorkflow(
     runId,
     flowType: "reporting",
     status: "success",
+    userId: input.userId ?? null,
     selectedAccountId: accountId,
     model,
     summary: report.executiveSummary,
