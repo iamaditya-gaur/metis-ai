@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
+import { requireSupabaseEnv } from "@/lib/supabase/env";
+
 /**
  * Server Supabase client tied to the current request's cookie jar. Use this
  * inside server components, route handlers, and server actions to read the
@@ -10,16 +12,10 @@ import { createServerClient } from "@supabase/ssr";
  * those (it bypasses RLS).
  */
 export async function createClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
-    throw new Error("Missing Supabase public environment variables.");
-  }
-
+  const { url, key } = requireSupabaseEnv("anon");
   const cookieStore = await cookies();
 
-  return createServerClient(url, anonKey, {
+  return createServerClient(url, key, {
     cookies: {
       getAll() {
         return cookieStore.getAll();

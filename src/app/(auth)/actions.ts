@@ -106,43 +106,57 @@ export async function signUpAction(
       message: "Pick a password with at least 8 characters.",
     };
 
-  let admin;
+  let next: string;
   try {
-    admin = createAdminClient();
-  } catch {
+    const admin = createAdminClient();
+
+    const { error: createError } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    });
+    if (createError) {
+      return {
+        status: "error",
+        message: friendlySignUpError(createError.message),
+      };
+    }
+
+    // Sign the user in on the same request so the session cookie is set and
+    // they land inside /app immediately.
+    const supabase = await createClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (signInError) {
+      return {
+        status: "error",
+        message:
+          "Account was created but auto sign-in failed. Try signing in manually.",
+      };
+    }
+
+    next = safeNext(formData.get("next"));
+    revalidatePath("/", "layout");
+  } catch (err) {
+    // Only env-misconfig errors should reach here (Supabase env helpers throw
+    // a specific message). Anything else also bubbles up as a friendly toast.
+    const message =
+      err instanceof Error
+        ? err.message
+        : "Signup failed for an unknown reason.";
+    console.error("[signUpAction] aborted", err);
     return {
       status: "error",
-      message: "Server isn't configured for signup yet. Try again in a minute.",
+      message: message.startsWith("Missing env:")
+        ? "Server isn't fully configured for signup yet. Reach out to support."
+        : `Signup failed: ${message}`,
     };
   }
 
-  const { error: createError } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
-
-  if (createError) {
-    return { status: "error", message: friendlySignUpError(createError.message) };
-  }
-
-  // Sign the user in on the same request so the session cookie is set and
-  // they land inside /app immediately.
-  const supabase = await createClient();
-  const { error: signInError } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-  if (signInError) {
-    return {
-      status: "error",
-      message:
-        "Account was created but auto sign-in failed. Try signing in manually.",
-    };
-  }
-
-  const next = safeNext(formData.get("next"));
-  revalidatePath("/", "layout");
+  // redirect() must NOT be inside try/catch — it throws NEXT_REDIRECT and the
+  // framework needs to handle it, not us.
   redirect(next);
 }
 

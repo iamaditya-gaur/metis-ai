@@ -1,5 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 
+import { requireSupabaseEnv } from "@/lib/supabase/env";
+
 /**
  * Browser Supabase client. Reads anon key from public env and stores the
  * session in cookies so server components and route handlers can see it.
@@ -7,12 +9,6 @@ import { createBrowserClient } from "@supabase/ssr";
  * Use this from "use client" components only.
  */
 export function createClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
-    throw new Error("Missing Supabase public environment variables.");
-  }
-
-  return createBrowserClient(url, anonKey);
+  const { url, key } = requireSupabaseEnv("anon");
+  return createBrowserClient(url, key);
 }
