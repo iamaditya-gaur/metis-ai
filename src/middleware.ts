@@ -1,17 +1,35 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { checkAdminCookieFromHeader } from "@/lib/auth/admin-gate";
+import { updateSession } from "@/lib/supabase/middleware";
 
 /**
- * Gates all `/admin/*` routes except `/admin/login` itself (the login form
- * must be reachable while unauthenticated). On a missing or invalid admin
- * cookie, redirects to `/admin/login` with a `next` query param so the user
- * lands back where they tried to go after authenticating.
+ * Two coexisting auth systems gate this app:
  *
- * When Supabase Auth ships, the body of `checkAdminCookieFromHeader` changes
- * — this file does not.
+ *  - `/admin/*` — operator-only observability surface, protected by a signed
+ *    HMAC cookie (single shared secret). Unchanged from the original design.
+ *
+ *  - `/app/*`   — end-user product, protected by Supabase Auth session
+ *    cookies. Unauthenticated users get redirected to `/login`.
+ *
+ * Public routes (`/`, `/login`, `/signup`, `/reset-password`, `/reporting`)
+ * are not matched and pass through unaffected.
  */
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith("/admin")) {
+    return handleAdmin(request);
+  }
+
+  if (pathname.startsWith("/app")) {
+    return handleApp(request);
+  }
+
+  return NextResponse.next();
+}
+
+function handleAdmin(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // `/admin/login` and `/admin/logout` must stay reachable.
@@ -29,8 +47,23 @@ export function middleware(request: NextRequest) {
   return NextResponse.redirect(loginUrl);
 }
 
+async function handleApp(request: NextRequest) {
+  const { response, user } = await updateSession(request);
+
+  if (user) {
+    return response;
+  }
+
+  const loginUrl = new URL("/login", request.url);
+  loginUrl.searchParams.set(
+    "next",
+    request.nextUrl.pathname + (request.nextUrl.search ?? ""),
+  );
+  return NextResponse.redirect(loginUrl);
+}
+
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/app/:path*"],
   // node:crypto (HMAC, timingSafeEqual) is used in the admin gate.
   // Default middleware runtime is Edge, which excludes Node modules.
   runtime: "nodejs",
