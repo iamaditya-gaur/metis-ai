@@ -25,8 +25,8 @@ export default async function ReportsPage() {
   return (
     <AppShell
       eyebrow="Reports"
-      title="Generate a Meta ads summary that sounds like you"
-      description="Pick a saved connection, set the reporting window, drop in past client messages, and Metis returns the factual read plus a send-ready client update."
+      title="Generate a Meta ads summary"
+      description="Pick a connection, set the window, drop in past client messages — Metis returns the factual read plus a send-ready client update."
     >
       {connections.length === 0 ? (
         <GlassPanel

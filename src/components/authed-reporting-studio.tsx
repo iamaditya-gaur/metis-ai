@@ -99,9 +99,6 @@ export function AuthedReportingStudio({ connections }: Props) {
 
       <GlassPanel
         className="authed-reports-picker"
-        eyebrow="Connection"
-        title="Which Meta account?"
-        description="Switch between your saved connections. Ad accounts load inline below."
         actions={
           activeConnection?.account_count != null && !isLoadingAccounts ? (
             <StatusPill

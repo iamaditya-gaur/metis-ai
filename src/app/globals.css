@@ -2873,34 +2873,39 @@ input {
   gap: 0.75rem;
 }
 
-/* Conventional rail-edge toggle: small circular button half-overhanging the
-   sidebar's right border, just the chevron, no label. */
+/* Brand row holds the brand link and a conventional hamburger toggle. */
+.product-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.product-brand-row > .product-brand {
+  flex: 1;
+  min-width: 0;
+}
+
 .product-sidebar-toggle {
-  position: absolute;
-  top: 5.25rem;
-  right: -0.85rem;
-  z-index: 5;
   display: inline-flex;
-  width: 1.6rem;
-  height: 1.6rem;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid var(--product-line-strong);
-  border-radius: 999px;
-  background: rgb(255 252 246 / 0.95);
+  border: 1px solid var(--product-line);
+  border-radius: 0.55rem;
+  background: rgb(255 252 246 / 0.85);
   color: var(--product-ink-soft);
   cursor: pointer;
-  box-shadow:
-    0 6px 14px -6px var(--product-shadow),
-    0 1px 0 rgb(255 255 255 / 0.6) inset;
-  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
 
 .product-sidebar-toggle:hover {
   background: #fff8ed;
   color: var(--product-ink);
-  transform: translateY(-1px);
+  border-color: var(--product-line-strong);
 }
 
 .product-sidebar-toggle:focus-visible {
@@ -2928,7 +2933,9 @@ input {
 /* ---- Collapsed state (desktop ≥900px, matches the .product-shell grid) -- */
 
 @media (min-width: 900px) {
-  .product-shell[data-sidebar-collapsed="true"] {
+  /* Drive the grid template from the sidebar's own data-attribute so client
+     toggles update the shell in the same render — no SSR/CSR mismatch. */
+  .product-shell:has(.product-sidebar[data-collapsed="true"]) {
     grid-template-columns: 76px minmax(0, 1fr);
   }
 
@@ -2939,6 +2946,22 @@ input {
   .product-sidebar[data-collapsed="true"] .product-brand {
     padding: 0.5rem;
     justify-content: center;
+  }
+
+  /* In collapsed mode the M mark and hamburger stack vertically — the rail
+     is 76px wide which can't fit both side-by-side comfortably. */
+  .product-sidebar[data-collapsed="true"] .product-brand-row {
+    flex-direction: column;
+    gap: 0.45rem;
+    align-items: stretch;
+  }
+
+  .product-sidebar[data-collapsed="true"] .product-brand-row > .product-brand {
+    flex: 0;
+  }
+
+  .product-sidebar[data-collapsed="true"] .product-sidebar-toggle {
+    align-self: center;
   }
 
   .product-sidebar[data-collapsed="true"] .product-brand-text,
@@ -3022,7 +3045,8 @@ input {
     display: inline-flex;
   }
 
-  /* The rail-edge toggle is desktop-only; mobile uses the hamburger + backdrop. */
+  /* In-sidebar hamburger is desktop-only; mobile uses the floating trigger
+     to open and the backdrop tap to close. */
   .product-sidebar-toggle {
     display: none;
   }
@@ -3578,6 +3602,106 @@ input {
   border-color: rgb(213 93 49 / 0.7);
   background: rgb(255 244 229 / 0.78);
   box-shadow: 0 0 0 4px rgb(213 93 49 / 0.12);
+}
+
+/* Variant A — compact field + side action rail. The input lives on the
+   left and auto-grows from one line; the rail on the right holds the
+   "Use preset" dropdown and "Upload" button. File chips render below. */
+.reporting-studio-tone-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(15rem, 0.85fr);
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--product-line);
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 0.5);
+  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.reporting-studio-tone-row[data-dragging="true"] {
+  border-color: rgb(213 93 49 / 0.7);
+  background: rgb(255 244 229 / 0.7);
+  box-shadow: 0 0 0 4px rgb(213 93 49 / 0.12);
+}
+
+.reporting-studio-tone-input {
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0.35rem 0.2rem;
+  border: 0;
+  background: transparent;
+  resize: vertical;
+  color: var(--product-ink);
+  font: inherit;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  outline: none;
+  field-sizing: content;
+  max-height: 12rem;
+}
+
+.reporting-studio-tone-input::placeholder {
+  color: rgb(93 84 72 / 0.6);
+}
+
+.reporting-studio-tone-rail {
+  display: grid;
+  gap: 0.5rem;
+  align-content: start;
+  padding-left: 0.6rem;
+  border-left: 1px dashed var(--product-line);
+}
+
+.reporting-studio-tone-rail-field {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.reporting-studio-tone-rail-label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--product-ink-soft);
+}
+
+.reporting-studio-tone-upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--product-line);
+  border-radius: 0.65rem;
+  background: rgb(255 252 246 / 0.92);
+  color: var(--product-ink);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.reporting-studio-tone-upload:hover {
+  background: #fff8ed;
+  border-color: var(--product-line-strong);
+}
+
+@media (max-width: 720px) {
+  .reporting-studio-tone-row {
+    grid-template-columns: 1fr;
+  }
+  .reporting-studio-tone-rail {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px dashed var(--product-line);
+    padding-top: 0.55rem;
+  }
+}
+
+/* Centered output tabs lifted out of the GlassPanel. */
+.reporting-studio-tabs-shell {
+  display: flex;
+  justify-content: center;
 }
 
 .reporting-studio-tone-chips {

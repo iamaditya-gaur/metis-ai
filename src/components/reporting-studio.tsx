@@ -13,6 +13,7 @@ import type {
   ReportingRunRequest,
   ReportingRunResponse,
 } from "@/lib/metis/types";
+import type { ToneSource } from "@/lib/tone-sources/queries";
 
 type ReportingStudioProps = {
   accounts: AccountOption[];
@@ -242,6 +243,10 @@ export function ReportingStudio({
   const [outputVariant, setOutputVariant] = useState<"tabs" | "disclosure">("tabs");
   const [tabsView, setTabsView] = useState<"client" | "numbers">("client");
   const [isNumbersExpanded, setIsNumbersExpanded] = useState(false);
+  // Reusable tone-source presets. Only loaded for the authed flow — the
+  // public /reporting route stays in-session without history.
+  const [tonePresets, setTonePresets] = useState<ToneSource[]>([]);
+  const [activePresetId, setActivePresetId] = useState<string>("");
   const [isPending, startTransition] = useTransition();
 
   const toneExamples = buildToneContextValue(manualToneExamples, uploadedToneFiles);
@@ -280,6 +285,68 @@ export function ReportingStudio({
       }
     };
   }, []);
+
+  // Load reusable tone presets for the authed flow. The public /reporting
+  // route can't persist (no auth), so we skip the fetch there entirely.
+  useEffect(() => {
+    if (mode !== "authed") return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch("/api/metis/tone-sources");
+        if (!response.ok) return;
+        const body = (await response.json()) as { sources?: ToneSource[] };
+        if (!cancelled && Array.isArray(body.sources)) {
+          setTonePresets(body.sources);
+        }
+      } catch {
+        // Silent — presets are a quality-of-life feature, not load-bearing.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mode]);
+
+  const saveUploadedAsPreset = async (file: UploadedToneFile) => {
+    if (mode !== "authed") return;
+    try {
+      const response = await fetch("/api/metis/tone-sources", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: file.name, content: file.content }),
+      });
+      if (!response.ok) return;
+      const body = (await response.json()) as { source?: ToneSource };
+      if (body.source) {
+        setTonePresets((current) => [body.source as ToneSource, ...current]);
+      }
+    } catch {
+      // Silent — local upload still works without server persistence.
+    }
+  };
+
+  const touchPreset = async (id: string) => {
+    if (mode !== "authed") return;
+    try {
+      await fetch("/api/metis/tone-sources", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ touchId: id }),
+      });
+    } catch {
+      // Silent.
+    }
+  };
+
+  const handlePresetChange = (id: string) => {
+    setActivePresetId(id);
+    if (!id) return;
+    const preset = tonePresets.find((source) => source.id === id);
+    if (!preset) return;
+    setManualToneExamples(preset.content);
+    void touchPreset(id);
+  };
 
   const ingestToneFiles = async (incoming: File[]) => {
     if (!incoming.length) return;
@@ -320,6 +387,10 @@ export function ReportingStudio({
 
     if (nextFiles.length) {
       setUploadedToneFiles((current) => [...current, ...nextFiles]);
+      // Persist each new upload as a reusable preset (authed only).
+      for (const file of nextFiles) {
+        void saveUploadedAsPreset(file);
+      }
     }
     setToneContextError(issues.join(" "));
   };
@@ -461,15 +532,15 @@ export function ReportingStudio({
   const hasResult = result !== null;
   const showCollapsedChip = isInputsCollapsed && hasResult && !isPending;
 
+  // No idle pill — it's visual noise when nothing is happening. Only render
+  // for in-flight / terminal states.
   const statusPill = error ? (
     <StatusPill label="Run failed" tone="warning" />
   ) : isPending ? (
     <StatusPill label="Running" tone="info" isActive />
   ) : result ? (
     <StatusPill label="Slack-ready" tone="success" />
-  ) : (
-    <StatusPill label="Ready" tone="neutral" />
-  );
+  ) : null;
 
   return (
     <div className="reporting-studio">
@@ -500,8 +571,6 @@ export function ReportingStudio({
       ) : (
         <GlassPanel
           className="reporting-studio-hero"
-          eyebrow="Reporting window"
-          title="Set up the report"
           actions={statusPill}
           busy={isPending}
           overlay={
@@ -523,7 +592,7 @@ export function ReportingStudio({
             <div className="reporting-studio-controls">
               <div className="product-field reporting-studio-field reporting-studio-field--account">
                 <label className="product-label" htmlFor="reporting-account">
-                  Account
+                  Ad account
                 </label>
                 <div className="product-select-wrap">
                   <select
@@ -570,73 +639,102 @@ export function ReportingStudio({
               </div>
 
               <div
-                className="reporting-studio-tone-dropzone"
+                className="reporting-studio-tone-row"
                 data-dragging={isDraggingFiles ? "true" : undefined}
                 onDragEnter={handleDropzoneDragEnter}
                 onDragOver={handleDropzoneDragOver}
                 onDragLeave={handleDropzoneDragLeave}
                 onDrop={handleDropzoneDrop}
               >
-                {uploadedToneFiles.length ? (
-                  <div className="reporting-studio-tone-chips" aria-live="polite">
-                    {uploadedToneFiles.map((file) => (
-                      <span key={file.id} className="reporting-studio-tone-chip">
-                        <span className="reporting-studio-tone-chip-name">{file.name}</span>
-                        <span className="reporting-studio-tone-chip-meta">
-                          {formatCharacterCount(file.charCount)} chars
-                        </span>
-                        <button
-                          type="button"
-                          className="reporting-studio-tone-chip-remove"
-                          onClick={() => handleToneFileRemove(file.id)}
-                          aria-label={`Remove ${file.name}`}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-
                 <textarea
                   id="reporting-tone-text"
-                  className="reporting-studio-tone-text"
-                  placeholder="Paste a past client update, or drag a TXT/MD file in. The numbers stay grounded — only the writing style is borrowed."
+                  className="reporting-studio-tone-input"
+                  placeholder="Paste a past client update, or drag a TXT/MD file in."
                   value={manualToneExamples}
-                  onChange={(event) => setManualToneExamples(event.target.value)}
+                  onChange={(event) => {
+                    setManualToneExamples(event.target.value);
+                    if (activePresetId) setActivePresetId("");
+                  }}
+                  rows={1}
                 />
 
-                <div className="reporting-studio-tone-footer">
+                <div className="reporting-studio-tone-rail">
+                  {mode === "authed" && tonePresets.length > 0 ? (
+                    <div className="reporting-studio-tone-rail-field">
+                      <label
+                        className="reporting-studio-tone-rail-label"
+                        htmlFor="reporting-tone-preset"
+                      >
+                        Use preset
+                      </label>
+                      <div className="product-select-wrap">
+                        <select
+                          id="reporting-tone-preset"
+                          className="product-select"
+                          value={activePresetId}
+                          onChange={(event) => handlePresetChange(event.target.value)}
+                        >
+                          <option value="">Pick a saved source…</option>
+                          {tonePresets.map((preset) => (
+                            <option key={preset.id} value={preset.id}>
+                              {preset.label}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="product-select-indicator" aria-hidden="true" />
+                      </div>
+                    </div>
+                  ) : null}
+
                   <button
                     type="button"
-                    className="reporting-studio-tone-add"
+                    className="reporting-studio-tone-upload"
                     onClick={handleToneFilePickerOpen}
                   >
-                    + Add TXT or MD
+                    <UploadGlyph />
+                    Upload TXT / MD
                   </button>
-                  {uploadedToneFiles.length ? (
-                    <button
-                      type="button"
-                      className="reporting-studio-tone-clear"
-                      onClick={handleToneFilesClear}
-                    >
-                      Clear files
-                    </button>
-                  ) : (
-                    <span className="reporting-studio-tone-hint">or drag a file in</span>
-                  )}
-                </div>
+                  <span className="reporting-studio-tone-hint">or drag a file</span>
 
-                <input
-                  ref={toneFileInputRef}
-                  id="reporting-tone-upload"
-                  className="reporting-context-file-input"
-                  type="file"
-                  accept=".txt,.md,.markdown,text/plain,text/markdown"
-                  multiple
-                  onChange={handleToneFileSelect}
-                />
+                  <input
+                    ref={toneFileInputRef}
+                    id="reporting-tone-upload-input"
+                    className="reporting-context-file-input"
+                    type="file"
+                    accept=".txt,.md,.markdown,text/plain,text/markdown"
+                    multiple
+                    onChange={handleToneFileSelect}
+                  />
+                </div>
               </div>
+
+              {uploadedToneFiles.length ? (
+                <div className="reporting-studio-tone-chips" aria-live="polite">
+                  {uploadedToneFiles.map((file) => (
+                    <span key={file.id} className="reporting-studio-tone-chip">
+                      <span className="reporting-studio-tone-chip-name">{file.name}</span>
+                      <span className="reporting-studio-tone-chip-meta">
+                        {formatCharacterCount(file.charCount)} chars
+                      </span>
+                      <button
+                        type="button"
+                        className="reporting-studio-tone-chip-remove"
+                        onClick={() => handleToneFileRemove(file.id)}
+                        aria-label={`Remove ${file.name}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <button
+                    type="button"
+                    className="reporting-studio-tone-clear"
+                    onClick={handleToneFilesClear}
+                  >
+                    Clear all
+                  </button>
+                </div>
+              ) : null}
 
               {toneContextError ? (
                 <div className="product-warning">{toneContextError}</div>
@@ -701,52 +799,55 @@ export function ReportingStudio({
         </div>
 
         {outputVariant === "tabs" ? (
-          <GlassPanel className="reporting-studio-output-panel">
-            <div className="reporting-studio-tabs" role="tablist" aria-label="Output view">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tabsView === "client"}
-                className="reporting-studio-tab"
-                data-active={tabsView === "client" ? "true" : undefined}
-                onClick={() => setTabsView("client")}
-              >
-                Client message
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tabsView === "numbers"}
-                className="reporting-studio-tab"
-                data-active={tabsView === "numbers" ? "true" : undefined}
-                onClick={() => setTabsView("numbers")}
-              >
-                View the numbers
-              </button>
+          <>
+            <div className="reporting-studio-tabs-shell">
+              <div className="reporting-studio-tabs" role="tablist" aria-label="Output view">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tabsView === "client"}
+                  className="reporting-studio-tab"
+                  data-active={tabsView === "client" ? "true" : undefined}
+                  onClick={() => setTabsView("client")}
+                >
+                  Client message
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tabsView === "numbers"}
+                  className="reporting-studio-tab"
+                  data-active={tabsView === "numbers" ? "true" : undefined}
+                  onClick={() => setTabsView("numbers")}
+                >
+                  View the numbers
+                </button>
+              </div>
             </div>
-
-            {tabsView === "client" ? (
-              <ClientMessageCard
-                finalMessage={result?.finalSlackMessage ?? null}
-                runNotes={
-                  hasResult && result
-                    ? `Prepared from ${result.snapshot.rowCount} reporting rows across ${result.snapshot.dateRange.label}.`
-                    : null
-                }
-                copyState={copyState}
-                onCopy={handleCopyFinalMessage}
-              />
-            ) : (
-              <NumbersView
-                metrics={metrics}
-                hasResult={hasResult}
-                executiveSummary={result?.report.executiveSummary ?? null}
-                whatChangedItems={whatChangedItems}
-                riskItems={riskItems}
-                nextActionItems={nextActionItems}
-              />
-            )}
-          </GlassPanel>
+            <GlassPanel className="reporting-studio-output-panel">
+              {tabsView === "client" ? (
+                <ClientMessageCard
+                  finalMessage={result?.finalSlackMessage ?? null}
+                  runNotes={
+                    hasResult && result
+                      ? `Prepared from ${result.snapshot.rowCount} reporting rows across ${result.snapshot.dateRange.label}.`
+                      : null
+                  }
+                  copyState={copyState}
+                  onCopy={handleCopyFinalMessage}
+                />
+              ) : (
+                <NumbersView
+                  metrics={metrics}
+                  hasResult={hasResult}
+                  executiveSummary={result?.report.executiveSummary ?? null}
+                  whatChangedItems={whatChangedItems}
+                  riskItems={riskItems}
+                  nextActionItems={nextActionItems}
+                />
+              )}
+            </GlassPanel>
+          </>
         ) : (
           <>
             <GlassPanel className="reporting-studio-output-panel">
@@ -796,6 +897,26 @@ export function ReportingStudio({
 
       {isStandalone && result ? <SignUpNudge /> : null}
     </div>
+  );
+}
+
+function UploadGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={14}
+      height={14}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.85}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 16V4" />
+      <polyline points="7 9 12 4 17 9" />
+      <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+    </svg>
   );
 }
 

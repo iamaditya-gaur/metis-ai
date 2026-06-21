@@ -96,17 +96,28 @@ export function AppSidebar({ user, defaultCollapsed = true }: Props) {
         data-mobile-open={isMobileOpen ? "true" : undefined}
         aria-label="Primary"
       >
-        <Link href="/app/reports" className="product-brand product-brand-link">
-          <span className="product-brand-mark" aria-hidden="true">
-            M
-          </span>
-          <span className="product-brand-text">
-            <span className="product-brand-title">Metis AI</span>
-            <span className="product-brand-copy">
-              Meta ad reports that sound like you wrote them.
+        <div className="product-brand-row">
+          <Link href="/app/reports" className="product-brand product-brand-link">
+            <span className="product-brand-mark" aria-hidden="true">
+              M
             </span>
-          </span>
-        </Link>
+            <span className="product-brand-text">
+              <span className="product-brand-title">Metis AI</span>
+              <span className="product-brand-copy">
+                Meta ad reports that sound like you wrote them.
+              </span>
+            </span>
+          </Link>
+          <button
+            type="button"
+            className="product-sidebar-toggle"
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!isCollapsed}
+            onClick={() => setIsCollapsed((prev) => !prev)}
+          >
+            <IconMenu />
+          </button>
+        </div>
 
         <nav className="product-nav" aria-label="Primary navigation">
           {navItems.map((item) => {
@@ -154,15 +165,6 @@ export function AppSidebar({ user, defaultCollapsed = true }: Props) {
           )}
         </div>
 
-        <button
-          type="button"
-          className="product-sidebar-toggle"
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-expanded={!isCollapsed}
-          onClick={() => setIsCollapsed((prev) => !prev)}
-        >
-          <IconChevron direction={isCollapsed ? "right" : "left"} />
-        </button>
       </aside>
     </>
   );
@@ -228,16 +230,3 @@ function IconMenu() {
   );
 }
 
-function IconChevron({ direction }: { direction: "left" | "right" }) {
-  return (
-    <svg
-      {...iconBaseProps}
-      width={16}
-      height={16}
-      style={direction === "right" ? { transform: "rotate(180deg)" } : undefined}
-      aria-hidden="true"
-    >
-      <polyline points="15 18 9 12 15 6" />
-    </svg>
-  );
-}

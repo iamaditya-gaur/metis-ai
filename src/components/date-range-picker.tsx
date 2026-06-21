@@ -221,6 +221,12 @@ export function DateRangePicker({
       setHoverIso(null);
       return;
     }
+    // Clicking the same day twice in a row used to commit a single-day
+    // range. That's almost never intentional — keep the picker open and
+    // wait for a *different* end date.
+    if (cell.iso === pendingStartIso) {
+      return;
+    }
     const pendingDate = fromIso(pendingStartIso);
     if (cell.date < pendingDate) {
       onChange({ startDate: cell.iso, endDate: pendingStartIso });

@@ -25,16 +25,14 @@ export default async function ProductAppLayout({
   }
 
   const cookieStore = await cookies();
-  // Default to collapsed when no preference is stored; users explicitly opt
-  // into the expanded rail via the rail-edge toggle (cookie: "expanded").
+  // Default to collapsed when no preference is stored. The shell reads the
+  // collapse state from the sidebar via CSS :has() so we don't need to
+  // duplicate the attribute here.
   const defaultCollapsed = cookieStore.get("metis.sidebar")?.value !== "expanded";
 
   return (
     <div className="product-root">
-      <div
-        className="product-shell"
-        data-sidebar-collapsed={defaultCollapsed ? "true" : undefined}
-      >
+      <div className="product-shell">
         <AppSidebar
           user={userEmail !== null ? { email: userEmail } : null}
           defaultCollapsed={defaultCollapsed}
