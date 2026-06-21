@@ -25,7 +25,9 @@ export default async function ProductAppLayout({
   }
 
   const cookieStore = await cookies();
-  const defaultCollapsed = cookieStore.get("metis.sidebar")?.value === "collapsed";
+  // Default to collapsed when no preference is stored; users explicitly opt
+  // into the expanded rail via the rail-edge toggle (cookie: "expanded").
+  const defaultCollapsed = cookieStore.get("metis.sidebar")?.value !== "expanded";
 
   return (
     <div className="product-root">

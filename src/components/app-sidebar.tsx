@@ -39,7 +39,7 @@ type Props = {
   defaultCollapsed?: boolean;
 };
 
-export function AppSidebar({ user, defaultCollapsed = false }: Props) {
+export function AppSidebar({ user, defaultCollapsed = true }: Props) {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -127,18 +127,6 @@ export function AppSidebar({ user, defaultCollapsed = false }: Props) {
         </nav>
 
         <div className="product-sidebar-footer">
-          <button
-            type="button"
-            className="product-sidebar-toggle"
-            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            onClick={() => setIsCollapsed((prev) => !prev)}
-          >
-            <IconChevron direction={isCollapsed ? "right" : "left"} />
-            <span className="product-sidebar-toggle-label">
-              {isCollapsed ? "Expand" : "Collapse"}
-            </span>
-          </button>
-
           {user ? (
             <div className="product-user-card">
               <span className="product-account-role">Signed in</span>
@@ -165,6 +153,16 @@ export function AppSidebar({ user, defaultCollapsed = false }: Props) {
             </Link>
           )}
         </div>
+
+        <button
+          type="button"
+          className="product-sidebar-toggle"
+          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-expanded={!isCollapsed}
+          onClick={() => setIsCollapsed((prev) => !prev)}
+        >
+          <IconChevron direction={isCollapsed ? "right" : "left"} />
+        </button>
       </aside>
     </>
   );
