@@ -1,66 +1,58 @@
-import { WaitlistForm } from "@/components/waitlist-form";
+import Link from "next/link";
 
 const trustItems = [
-  "Understands the business before it drafts the campaign.",
-  "Builds strategy, messaging, and reporting from one brief.",
-  "Helps lean performance teams move with more structure.",
+  "Numbers come straight from Meta — nothing invented.",
+  "The final message mirrors your past client updates.",
+  "Copy and paste into Slack in one click.",
 ];
 
 const metrics = [
   {
     label: "Built for",
-    value: "Teams",
-    description: "Performance marketers and agency operators managing live accounts.",
+    value: "Operators",
+    description: "Solo media buyers, agency leads, and in-house performance teams.",
   },
   {
-    label: "Creates",
-    value: "Drafts",
-    description: "Strategy, messaging, and reporting structure from the same context.",
+    label: "Replaces",
+    value: "45 min",
+    description: "The weekly rewrite of the same client recap from a blank doc.",
   },
   {
-    label: "Reduces",
-    value: "Prep",
-    description: "Less blank-page planning before campaigns launch or reports go out.",
+    label: "Returns",
+    value: "Send-ready",
+    description: "A client-style message you can paste into Slack or email immediately.",
   },
   {
-    label: "Access",
-    value: "Early",
-    description: "Join the waitlist to get launch updates and onboarding priority.",
+    label: "Pricing",
+    value: "Free",
+    description: "Free while in early access. No card required to start.",
   },
 ];
 
 export function Hero() {
   return (
     <section className="section section-block">
-      <div className="hero-grid">
+      <div className="hero-grid hero-grid--single">
         <div className="hero-card stack-lg p-6 md:p-8">
-          <span className="kicker">Waitlist Open For Early Operators</span>
+          <span className="kicker">Reporting for Meta operators</span>
           <div className="stack-md">
             <h1 className="display-title">
-              Strategy, copy, and reporting for Meta teams that need better
-              output without more operational drag.
+              Meta ads reports that sound like you wrote them.
             </h1>
             <p className="section-copy">
-              I&apos;m building Metis AI. It helps media buying teams turn brand
-              context into sharper campaign plans, stronger creative direction,
-              and clearer reporting without rebuilding the same process every
-              week.
+              Connect your Meta account, pick a reporting window, and Metis
+              turns the data into a send-ready client update — grounded in
+              your numbers, written in your voice.
             </p>
           </div>
 
-          <div className="eyebrow-grid">
-            <div className="eyebrow-card">
-              <span className="eyebrow-label">Built For</span>
-              <p className="eyebrow-value">
-                Media buyers, performance marketers, and small agency teams.
-              </p>
-            </div>
-            <div className="eyebrow-card">
-              <span className="eyebrow-label">Best Use</span>
-              <p className="eyebrow-value">
-                Campaign planning, creative development, and reporting handoffs.
-              </p>
-            </div>
+          <div className="hero-cta-row">
+            <Link href="/signup" className="hero-cta hero-cta--primary">
+              Get started — it&apos;s free
+            </Link>
+            <Link href="/login" className="hero-cta hero-cta--ghost">
+              Sign in
+            </Link>
           </div>
 
           <div className="trust-strip">
@@ -71,13 +63,6 @@ export function Hero() {
             ))}
           </div>
         </div>
-
-        <WaitlistForm
-          title="Get first access"
-          description="Join the waitlist for early access, release updates, and the first onboarding invite."
-          buttonLabel="Join The Waitlist"
-          source="hero-form"
-        />
       </div>
 
       <div className="metrics-grid pt-6">

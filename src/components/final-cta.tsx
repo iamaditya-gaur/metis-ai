@@ -1,32 +1,33 @@
-import { WaitlistForm } from "@/components/waitlist-form";
+import Link from "next/link";
 
 export function FinalCta() {
   return (
     <section className="section section-block pb-10">
-      <div className="cta-panel footer-grid">
+      <div className="cta-panel cta-panel--final">
         <div className="stack-md">
-          <span className="kicker">Join The Waitlist</span>
+          <span className="kicker">Ready when you are</span>
           <h2 className="section-title">
-            If Meta is a serious growth channel for your team, Metis AI is
-            worth getting in front of early.
+            Stop rewriting the same client update every week.
           </h2>
           <p className="section-copy">
-            Early access is for teams that want a more disciplined planning and
-            reporting workflow before that process turns into another internal
-            mess.
-          </p>
-          <p className="footer-note">
-            Early updates include product access timing, setup notes, and
-            launch announcements.
+            Connect a Meta account, drop in a few past updates, and let Metis
+            handle the recap. Free while in early access.
           </p>
         </div>
 
-        <WaitlistForm
-          title="Claim early access"
-          description="Enter your work email to get product updates and the first onboarding invitation."
-          buttonLabel="Join The Waitlist"
-          source="footer-form"
-        />
+        <div className="cta-actions">
+          <Link href="/signup" className="hero-cta hero-cta--primary">
+            Get started — it&apos;s free
+          </Link>
+          <Link href="/login" className="hero-cta hero-cta--ghost">
+            I already have an account
+          </Link>
+        </div>
+
+        <p className="footer-note">
+          No card required. You can connect a Meta account whenever you&apos;re
+          ready.
+        </p>
       </div>
     </section>
   );
