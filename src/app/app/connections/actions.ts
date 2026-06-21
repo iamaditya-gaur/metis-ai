@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { encryptSecretToBase64 } from "@/lib/crypto/token-encryption";
@@ -8,8 +9,7 @@ import { getAccessibleAccounts } from "@/lib/metis/accounts";
 
 export type AddConnectionResult =
   | { status: "idle" }
-  | { status: "error"; message: string }
-  | { status: "success"; message: string };
+  | { status: "error"; message: string };
 
 const MAX_LABEL_LENGTH = 80;
 const MAX_TOKEN_LENGTH = 4000;
@@ -77,29 +77,34 @@ export async function addConnectionAction(
     };
   }
 
-  const { error: insertError } = await supabase.from("meta_connections").insert({
-    user_id: user.id,
-    label,
-    ciphertext: parts.ciphertext,
-    iv: parts.iv,
-    auth_tag: parts.authTag,
-    account_count: accountCount,
-    last_synced_at: new Date().toISOString(),
-  });
+  const { data: inserted, error: insertError } = await supabase
+    .from("meta_connections")
+    .insert({
+      user_id: user.id,
+      label,
+      ciphertext: parts.ciphertext,
+      iv: parts.iv,
+      auth_tag: parts.authTag,
+      account_count: accountCount,
+      last_synced_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
 
-  if (insertError) {
+  if (insertError || !inserted) {
     return {
       status: "error",
-      message: `Couldn't save the connection: ${insertError.message}`,
+      message: `Couldn't save the connection: ${insertError?.message ?? "unknown error"}`,
     };
   }
 
   revalidatePath("/app/connections");
   revalidatePath("/app/reports");
-  return {
-    status: "success",
-    message: `Connected. Found ${accountCount} ad account${accountCount === 1 ? "" : "s"}.`,
-  };
+
+  // redirect() must be OUTSIDE try/catch — it throws NEXT_REDIRECT and the
+  // framework needs to handle that throw, not us. The user lands on /app/reports
+  // with the new connection pre-selected and a "saved" toast.
+  redirect(`/app/reports?connection=${inserted.id}&saved=1`);
 }
 
 export async function deleteConnectionAction(formData: FormData) {

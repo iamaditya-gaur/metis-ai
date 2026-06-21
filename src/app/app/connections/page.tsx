@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 
+import { AppShell } from "@/components/app-shell";
+import { ConnectionsManager } from "@/components/connections-manager";
 import { createClient } from "@/lib/supabase/server";
-import { GlassPanel } from "@/components/glass-panel";
-import { ConnectionsList } from "@/components/connections-list";
-import { AddConnectionForm } from "@/components/add-connection-form";
+
 import { deleteConnectionAction } from "./actions";
 
 export type ConnectionRow = {
@@ -14,7 +14,11 @@ export type ConnectionRow = {
   created_at: string;
 };
 
-export default async function ConnectionsPage() {
+type PageProps = {
+  searchParams: Promise<{ firstrun?: string }>;
+};
+
+export default async function ConnectionsPage({ searchParams }: PageProps) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -29,43 +33,31 @@ export default async function ConnectionsPage() {
     .order("created_at", { ascending: false });
 
   const rows: ConnectionRow[] = connections ?? [];
+  const params = await searchParams;
+  const isFirstRunRequest = params.firstrun === "1";
+  const isEmpty = rows.length === 0;
+  // Open the form by default for first-time users OR anyone who explicitly
+  // arrived via the `firstrun=1` deep link from the reports empty state.
+  const startFormOpen = isEmpty || isFirstRunRequest;
+  // Use first-run copy only when the user genuinely has no connections yet —
+  // existing users adding a second connection get the regular copy.
+  const firstRun = isEmpty;
+
+  const title = firstRun
+    ? "Connect your first Meta account"
+    : "Your Meta connections";
+  const description = firstRun
+    ? "Save an access token once and every report you generate skips the paste step."
+    : "Tokens stay encrypted and never appear in any output. Add one per ad account or agency client.";
 
   return (
-    <div className="connections-page">
-      <header className="product-topbar">
-        <div className="product-topbar-copy">
-          <span className="product-eyebrow">Connections</span>
-          <h1 className="product-title">Your Meta accounts</h1>
-          <p className="product-description">
-            Saved tokens stay encrypted and never appear in any output. Add one
-            per ad account or agency client.
-          </p>
-        </div>
-      </header>
-
-      <div className="connections-grid">
-        <GlassPanel
-          className="connections-list-panel"
-          eyebrow="Saved connections"
-          title={rows.length === 0 ? "No connections yet" : `${rows.length} saved`}
-          description={
-            rows.length === 0
-              ? "Add your first Meta access token on the right to start generating reports without re-pasting."
-              : "Pick from these when you create a new report. Each one shows the accounts it can reach."
-          }
-        >
-          <ConnectionsList rows={rows} deleteAction={deleteConnectionAction} />
-        </GlassPanel>
-
-        <GlassPanel
-          className="connections-add-panel"
-          eyebrow="Add a connection"
-          title="Paste a Meta access token"
-          description="Give it a label so you remember which client or account it's for. Metis verifies the token before saving."
-        >
-          <AddConnectionForm />
-        </GlassPanel>
-      </div>
-    </div>
+    <AppShell eyebrow="Connections" title={title} description={description}>
+      <ConnectionsManager
+        rows={rows}
+        deleteAction={deleteConnectionAction}
+        startFormOpen={startFormOpen}
+        firstRun={firstRun}
+      />
+    </AppShell>
   );
 }

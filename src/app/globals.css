@@ -532,40 +532,106 @@ input {
 }
 
 .product-nav-link {
-  display: grid;
-  gap: 0.18rem;
-  padding: 0.9rem 0.95rem;
+  position: relative;
+  display: block;
+  padding: 0.65rem 0.85rem;
   border: 1px solid transparent;
-  border-radius: 1rem;
+  border-radius: 0.9rem;
+  color: var(--product-ink);
+  text-decoration: none;
   transition:
-    transform 140ms ease,
-    background 140ms ease,
-    border-color 140ms ease;
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
 }
 
 .product-nav-link:hover {
-  transform: translateY(-1px);
-  background: rgb(255 250 242 / 0.58);
+  background: rgb(255 250 242 / 0.55);
   border-color: var(--product-line);
 }
 
 .product-nav-link[data-active="true"] {
   background: var(--product-glass-strong);
-  border-color: var(--product-line-strong);
-  box-shadow:
-    0 16px 40px -28px var(--product-shadow),
-    inset 0 1px 0 rgb(255 255 255 / 0.75);
+  border-color: var(--product-line);
+  box-shadow: inset 3px 0 0 var(--product-warning);
+}
+
+.product-nav-link-inner {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 1.4rem;
+}
+
+.product-nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--product-ink-soft);
+  transition: color 120ms ease;
+}
+
+.product-nav-link[data-active="true"] .product-nav-icon {
+  color: var(--product-warning);
+}
+
+.product-nav-text {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
 }
 
 .product-nav-label {
-  font-size: 0.96rem;
-  font-weight: 700;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .product-nav-copy {
-  font-size: 0.82rem;
-  line-height: 1.4;
+  font-size: 0.78rem;
+  line-height: 1.35;
   color: var(--product-ink-soft);
+}
+
+/* Pending-link feedback: thin bar slides under the link while Next.js is
+   fetching the destination route. Backed by useLinkStatus() — fires the
+   instant the user clicks. */
+.product-nav-link-bar {
+  position: absolute;
+  left: 0.85rem;
+  right: 0.85rem;
+  bottom: 0.3rem;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--product-warning);
+  transform: scaleX(0);
+  transform-origin: left center;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 180ms ease,
+    opacity 120ms ease;
+}
+
+.product-nav-link-inner[data-pending="true"] .product-nav-link-bar {
+  transform: scaleX(1);
+  opacity: 1;
+  animation: product-nav-link-bar-pulse 1.4s ease-in-out infinite;
+}
+
+.product-nav-link-inner[data-pending="true"] {
+  opacity: 0.78;
+}
+
+@keyframes product-nav-link-bar-pulse {
+  0%,
+  100% {
+    opacity: 0.95;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .product-account-stack {
@@ -2445,22 +2511,11 @@ input {
    /app/connections — saved Meta token management
    --------------------------------------------------------------------------- */
 
-.connections-page {
+.connections-surface {
   display: flex;
   flex-direction: column;
-  gap: 1.6rem;
-}
-
-.connections-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.2rem;
-}
-
-@media (min-width: 1080px) {
-  .connections-grid {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-  }
+  gap: 1.25rem;
+  max-width: 56rem;
 }
 
 .connections-list {
@@ -2778,4 +2833,409 @@ input {
   display: flex;
   gap: 0.6rem;
   flex-wrap: wrap;
+}
+
+/* ===========================================================================
+   Round 4 — UX rehaul: sidebar collapse, mobile drawer, skeletons
+   =========================================================================== */
+
+/* Brand text wrapper — gets hidden when sidebar is collapsed.
+   Existing .product-brand uses flex-direction:column; we override here so the
+   mark sits beside the text, which collapses cleanly when narrow. */
+.product-brand {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem;
+}
+
+.product-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  transition: opacity 140ms ease;
+}
+
+.product-brand-mark {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 0.8rem;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+/* Sidebar footer holds the toggle + user card. */
+.product-sidebar-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.product-sidebar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--product-line);
+  border-radius: 0.7rem;
+  background: transparent;
+  color: var(--product-ink-soft);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.product-sidebar-toggle:hover {
+  background: rgb(255 250 242 / 0.6);
+  border-color: var(--product-line-strong);
+  color: var(--product-ink);
+}
+
+.product-sidebar-toggle-label {
+  transition: opacity 140ms ease;
+}
+
+.product-user-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--product-line);
+  border-radius: 0.9rem;
+  background: rgb(255 250 242 / 0.5);
+  min-width: 0;
+}
+
+.product-user-card .product-account-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Collapsed state (desktop ≥900px, matches the .product-shell grid) -- */
+
+@media (min-width: 900px) {
+  .product-shell[data-sidebar-collapsed="true"] {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .product-sidebar[data-collapsed="true"] {
+    padding: 0.85rem 0.55rem;
+  }
+
+  .product-sidebar[data-collapsed="true"] .product-brand {
+    padding: 0.5rem;
+    justify-content: center;
+  }
+
+  .product-sidebar[data-collapsed="true"] .product-brand-text,
+  .product-sidebar[data-collapsed="true"] .product-nav-text,
+  .product-sidebar[data-collapsed="true"] .product-sidebar-toggle-label,
+  .product-sidebar[data-collapsed="true"] .product-user-card .product-account-role,
+  .product-sidebar[data-collapsed="true"] .product-user-card .product-account-label,
+  .product-sidebar[data-collapsed="true"] .product-user-card form {
+    display: none;
+  }
+
+  .product-sidebar[data-collapsed="true"] .product-nav-link {
+    padding: 0.65rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .product-sidebar[data-collapsed="true"] .product-nav-link-inner {
+    grid-template-columns: 20px;
+    justify-content: center;
+  }
+
+  .product-sidebar[data-collapsed="true"] .product-nav-link-bar {
+    left: 0.65rem;
+    right: 0.65rem;
+  }
+
+  .product-sidebar[data-collapsed="true"] .product-sidebar-toggle {
+    justify-content: center;
+    padding: 0.5rem;
+  }
+
+  .product-sidebar[data-collapsed="true"] .product-user-card {
+    padding: 0.4rem;
+    align-items: center;
+    background: transparent;
+    border: none;
+  }
+
+  .product-sidebar[data-collapsed="true"] .product-user-card::before {
+    content: "";
+    display: block;
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 999px;
+    background: linear-gradient(
+      135deg,
+      rgb(213 93 49 / 0.85),
+      rgb(51 92 219 / 0.8)
+    );
+  }
+}
+
+/* ---- Mobile drawer (<768px) -------------------------------------------- */
+
+.product-mobile-trigger {
+  display: none;
+  position: fixed;
+  top: 0.85rem;
+  left: 0.85rem;
+  z-index: 50;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.7rem;
+  border: 1px solid var(--product-line);
+  background: var(--product-glass-strong);
+  color: var(--product-ink);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+
+.product-mobile-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgb(32 28 24 / 0.45);
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+@media (max-width: 899px) {
+  .product-mobile-trigger {
+    display: inline-flex;
+  }
+
+  .product-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .product-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 45;
+    width: 280px;
+    max-width: 86vw;
+    height: 100vh;
+    transform: translateX(-100%);
+    transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+    border-right: 1px solid var(--product-line);
+    box-shadow: 0 30px 80px -30px rgb(32 28 24 / 0.35);
+  }
+
+  .product-sidebar[data-mobile-open="true"] {
+    transform: translateX(0);
+  }
+
+  .product-mobile-backdrop {
+    display: block;
+  }
+
+  .product-main {
+    padding-top: 3.6rem;
+  }
+}
+
+/* ---- Skeleton (loading.tsx fallback) ----------------------------------- */
+
+.product-skeleton-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  max-width: 56rem;
+}
+
+.product-skeleton-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.product-skeleton {
+  display: block;
+  height: 1rem;
+  width: 100%;
+  border-radius: 0.5rem;
+  background:
+    linear-gradient(
+      90deg,
+      rgb(63 54 44 / 0.06) 0%,
+      rgb(63 54 44 / 0.14) 50%,
+      rgb(63 54 44 / 0.06) 100%
+    );
+  background-size: 200% 100%;
+  animation: product-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.product-skeleton-panel {
+  background:
+    linear-gradient(
+      180deg,
+      rgb(255 251 245 / 0.55),
+      rgb(255 248 237 / 0.32)
+    ),
+    var(--product-glass);
+}
+
+@keyframes product-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ---- Reports flow toast (Phase D) -------------------------------------- */
+
+.reports-toast {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgb(34 93 68 / 0.28);
+  border-radius: 0.9rem;
+  background: rgb(212 246 226 / 0.65);
+  color: rgb(20 60 42);
+  font-size: 0.92rem;
+  margin-bottom: 1rem;
+  animation: reports-toast-in 240ms ease-out;
+}
+
+.reports-toast-dismiss {
+  margin-left: auto;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+}
+
+@keyframes reports-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---- Reports empty state two-step card --------------------------------- */
+
+.reports-empty-steps {
+  display: grid;
+  gap: 1rem;
+  padding: 0.5rem 0;
+}
+
+.reports-empty-step {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: start;
+}
+
+.reports-empty-step-num {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--product-line);
+  background: var(--product-glass-strong);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--product-ink);
+}
+
+.reports-empty-step[data-locked="true"] .reports-empty-step-num {
+  background: transparent;
+  color: var(--product-ink-soft);
+}
+
+.reports-empty-step[data-locked="true"] {
+  opacity: 0.7;
+}
+
+.reports-empty-step-title {
+  margin: 0 0 0.2rem;
+  font-weight: 700;
+  font-size: 0.98rem;
+}
+
+.reports-empty-step-copy {
+  margin: 0 0 0.7rem;
+  color: var(--product-ink-soft);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+/* ---- Inline accounts loader (replaces floating dialog) ----------------- */
+
+.accounts-loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 0.95rem;
+  border: 1px dashed var(--product-line);
+  border-radius: 0.8rem;
+  background: rgb(255 250 242 / 0.4);
+  color: var(--product-ink-soft);
+  font-size: 0.9rem;
+}
+
+.accounts-loading-spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  border: 2px solid var(--product-line-strong);
+  border-top-color: var(--product-warning);
+  animation: accounts-loading-spin 0.8s linear infinite;
+}
+
+@keyframes accounts-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.accounts-error-inline {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.75rem 0.95rem;
+  border: 1px solid rgb(167 75 43 / 0.35);
+  border-radius: 0.8rem;
+  background: rgb(252 232 219 / 0.6);
+  color: var(--product-warning);
+  font-size: 0.9rem;
+}
+
+.accounts-error-retry {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  color: inherit;
 }

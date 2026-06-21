@@ -62,11 +62,6 @@ export function AddConnectionForm() {
             {state.message}
           </p>
         ) : null}
-        {state.status === "success" ? (
-          <p className="auth-feedback auth-feedback-success" role="status">
-            {state.message}
-          </p>
-        ) : null}
 
         <button
           type="submit"

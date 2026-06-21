@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { GlassPanel } from "@/components/glass-panel";
@@ -29,22 +30,51 @@ export default async function ReportsPage() {
     >
       {connections.length === 0 ? (
         <GlassPanel
-          eyebrow="No connections yet"
-          title="Connect a Meta account to start"
-          description="Saved connections let you skip pasting a token every time you run a report."
+          eyebrow="Get started in two steps"
+          title="Connect a Meta account to generate your first report"
+          description="Save an access token once, and every future report skips the paste step."
         >
-          <div className="reports-empty">
-            <p className="product-help">
-              Add one Meta access token in Connections, then come back here
-              and generate your first report in seconds.
-            </p>
-            <Link href="/app/connections" className="product-button">
-              Add your first connection
-            </Link>
+          <div className="reports-empty-steps">
+            <div className="reports-empty-step">
+              <span className="reports-empty-step-num" aria-hidden="true">
+                1
+              </span>
+              <div>
+                <p className="reports-empty-step-title">
+                  Add a Meta access token
+                </p>
+                <p className="reports-empty-step-copy">
+                  Takes about 30 seconds. Tokens are encrypted at rest and
+                  never appear in reports.
+                </p>
+                <Link
+                  href="/app/connections?firstrun=1"
+                  className="product-button"
+                >
+                  Add a connection
+                </Link>
+              </div>
+            </div>
+            <div className="reports-empty-step" data-locked="true">
+              <span className="reports-empty-step-num" aria-hidden="true">
+                2
+              </span>
+              <div>
+                <p className="reports-empty-step-title">
+                  Pick a window and generate
+                </p>
+                <p className="reports-empty-step-copy">
+                  Once a connection is saved, this page unlocks the full
+                  reporting studio.
+                </p>
+              </div>
+            </div>
           </div>
         </GlassPanel>
       ) : (
-        <AuthedReportingStudio connections={connections} />
+        <Suspense fallback={null}>
+          <AuthedReportingStudio connections={connections} />
+        </Suspense>
       )}
     </AppShell>
   );
