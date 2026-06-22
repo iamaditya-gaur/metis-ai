@@ -1,7 +1,6 @@
-import Link from "next/link";
-
 import { AppShell } from "@/components/app-shell";
 import { GlassPanel } from "@/components/glass-panel";
+import { HistoryCopyButton } from "@/components/history-copy-button";
 import { MetricTile } from "@/components/metric-tile";
 import { StatusPill } from "@/components/status-pill";
 import { createClient } from "@/lib/supabase/server";
@@ -26,6 +25,14 @@ type RunDetail = {
   artifacts: unknown;
 };
 
+type ReportArtifact = {
+  kind?: string;
+  report?: {
+    slackMessage?: string | null;
+    [key: string]: unknown;
+  };
+};
+
 function formatDate(value: string | null): string {
   if (!value) return "—";
   const ts = new Date(value);
@@ -36,6 +43,19 @@ function formatDate(value: string | null): string {
 function formatNumber(value: number | null): string {
   if (value == null) return "—";
   return value.toLocaleString();
+}
+
+function extractClientMessage(artifacts: unknown): string | null {
+  if (!Array.isArray(artifacts)) return null;
+  for (const entry of artifacts as ReportArtifact[]) {
+    if (entry && entry.kind === "report") {
+      const message = entry.report?.slackMessage;
+      if (typeof message === "string" && message.trim().length > 0) {
+        return message.trim();
+      }
+    }
+  }
+  return null;
 }
 
 export default async function HistoryDetailPage({
@@ -61,26 +81,33 @@ export default async function HistoryDetailPage({
         eyebrow="History"
         title="Run not found"
         description="This run either doesn't exist or belongs to a different account."
+        backHref="/app/history"
+        backLabel="History"
       >
         <GlassPanel eyebrow="Missing" title="Nothing to show">
-          <Link href="/app/history" className="product-button" data-variant="secondary">
-            Back to history
-          </Link>
+          <p className="history-detail-empty">
+            The run you're looking for isn't in your history.
+          </p>
         </GlassPanel>
       </AppShell>
     );
   }
+
+  const clientMessage = extractClientMessage(run.artifacts);
 
   return (
     <AppShell
       eyebrow="History"
       title="Report detail"
       description={`Run ${run.run_id} · ${formatDate(run.started_at)}`}
+      backHref="/app/history"
+      backLabel="History"
     >
       <div className="history-detail">
         <GlassPanel
-          eyebrow="Summary"
-          title="Executive read"
+          className="history-detail-message"
+          eyebrow="Send-ready"
+          title="Client-style message"
           actions={
             <StatusPill
               label={run.status ?? "unknown"}
@@ -88,7 +115,28 @@ export default async function HistoryDetailPage({
             />
           }
         >
-          <p className="history-detail-summary">{run.summary ?? "(no summary)"}</p>
+          {clientMessage ? (
+            <>
+              <p className="history-detail-message-body">{clientMessage}</p>
+              <div className="history-detail-message-foot">
+                <HistoryCopyButton value={clientMessage} label="Copy message" />
+              </div>
+            </>
+          ) : (
+            <p className="history-detail-empty">
+              No client-style message was recorded for this run.
+            </p>
+          )}
+        </GlassPanel>
+
+        <GlassPanel
+          className="history-detail-summary-panel"
+          eyebrow="Operator view"
+          title="Executive read"
+        >
+          <p className="history-detail-summary">
+            {run.summary ?? "(no executive summary was captured)"}
+          </p>
         </GlassPanel>
 
         <div className="history-detail-metrics">
@@ -114,7 +162,7 @@ export default async function HistoryDetailPage({
           />
         </div>
 
-        <GlassPanel eyebrow="LLM calls" title="Per-call detail">
+        <GlassPanel eyebrow="Details" title="LLM calls">
           <details className="history-detail-block">
             <summary>Expand JSON</summary>
             <pre className="history-detail-pre">
@@ -123,7 +171,7 @@ export default async function HistoryDetailPage({
           </details>
         </GlassPanel>
 
-        <GlassPanel eyebrow="Tools" title="Tool invocations">
+        <GlassPanel eyebrow="Details" title="Tool invocations">
           <details className="history-detail-block">
             <summary>Expand JSON</summary>
             <pre className="history-detail-pre">
@@ -131,12 +179,6 @@ export default async function HistoryDetailPage({
             </pre>
           </details>
         </GlassPanel>
-
-        <div className="history-detail-actions">
-          <Link href="/app/history" className="product-button" data-variant="secondary">
-            Back to history
-          </Link>
-        </div>
       </div>
     </AppShell>
   );

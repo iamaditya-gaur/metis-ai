@@ -4313,3 +4313,198 @@ input {
   flex-wrap: wrap;
   gap: 0.6rem;
 }
+
+/* ---- App-shell back-link (top-left chevron) ---------------------------- */
+
+.app-shell-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.55rem;
+  padding: 0.3rem 0.6rem 0.3rem 0.3rem;
+  border-radius: 999px;
+  color: var(--product-ink-soft);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  width: fit-content;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.app-shell-back-link:hover {
+  background: rgb(255 248 236 / 0.6);
+  color: var(--product-ink);
+}
+
+.app-shell-back-link svg {
+  flex-shrink: 0;
+}
+
+/* ---- History list toolbar (sort) --------------------------------------- */
+
+.history-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 1rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--product-line);
+  border-radius: 0.85rem;
+  background: rgb(255 252 246 / 0.7);
+}
+
+.history-toolbar-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--product-ink-soft);
+}
+
+.history-toolbar-select {
+  position: relative;
+  min-width: 14rem;
+}
+
+.history-toolbar-select .product-select {
+  width: 100%;
+  padding-right: 2.2rem;
+}
+
+.history-toolbar-apply {
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--product-line-strong);
+  border-radius: 0.6rem;
+  background: var(--accent);
+  color: #fff8ed;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.history-toolbar-apply:hover {
+  background: #bf4b22;
+}
+
+/* ---- History list row + trash ------------------------------------------ */
+
+.history-row {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.history-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+}
+
+.history-row-open {
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
+}
+
+.history-row-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.history-row-actions {
+  display: inline-flex;
+}
+
+.history-row-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--product-line);
+  border-radius: 0.55rem;
+  background: rgb(255 252 246 / 0.6);
+  color: var(--product-ink-soft);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.history-row-delete:hover {
+  background: rgb(213 93 49 / 0.12);
+  border-color: rgb(213 93 49 / 0.45);
+  color: var(--accent);
+}
+
+.history-row-delete:disabled {
+  cursor: progress;
+  opacity: 0.55;
+}
+
+.history-row-summary {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--product-ink);
+}
+
+.history-row-meta {
+  margin: 0;
+}
+
+/* ---- History detail page ----------------------------------------------- */
+
+.history-detail-message-body {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 1rem;
+  line-height: 1.65;
+  color: var(--product-ink);
+}
+
+.history-detail-message-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.history-copy-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--product-line-strong);
+  border-radius: 0.6rem;
+  background: var(--accent);
+  color: #fff8ed;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.history-copy-button:hover:not(:disabled) {
+  background: #bf4b22;
+}
+
+.history-copy-button[data-state="copied"] {
+  background: var(--product-success);
+}
+
+.history-copy-button[data-state="failed"] {
+  background: var(--product-warning);
+}
+
+.history-copy-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.history-detail-empty {
+  margin: 0;
+  font-size: 0.94rem;
+  color: var(--product-ink-soft);
+}

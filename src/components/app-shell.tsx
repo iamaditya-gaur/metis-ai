@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { AppTopbar } from "@/components/app-topbar";
 import type { AccountBadge } from "@/lib/metis/types";
 
@@ -8,6 +10,9 @@ type AppShellProps = {
   /** Legacy prop, no longer rendered. Kept so old pages still compile. */
   sidebarAccounts?: AccountBadge[];
   topbarAccounts?: AccountBadge[];
+  /** When set, renders a "← <label>" chevron link above the page header. */
+  backHref?: string;
+  backLabel?: string;
   children: React.ReactNode;
 };
 
@@ -25,10 +30,18 @@ export function AppShell({
   title,
   description,
   topbarAccounts,
+  backHref,
+  backLabel,
   children,
 }: AppShellProps) {
   return (
     <>
+      {backHref ? (
+        <Link href={backHref} className="app-shell-back-link">
+          <BackChevron />
+          <span>{backLabel ?? "Back"}</span>
+        </Link>
+      ) : null}
       <AppTopbar
         eyebrow={eyebrow}
         title={title}
@@ -37,5 +50,23 @@ export function AppShell({
       />
       <main className="product-content">{children}</main>
     </>
+  );
+}
+
+function BackChevron() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={14}
+      height={14}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.85}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
   );
 }
