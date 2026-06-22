@@ -367,3 +367,30 @@ After reviewing, briefly confirm:
 
 Then wait for explicit user permission before executing.
 ```
+
+## Update — 2026-06-22
+
+The shared `<ReportingStudio>` component shape changed during the 2026-06-21
+and 2026-06-22 sessions but the **API contract is unchanged**:
+
+- `POST /api/metis/reporting` still accepts `{ accountId, dateStart, dateEnd, toneExamples, accessToken? | connectionId? }`.
+- `POST /api/metis/accounts` still accepts `{ accessToken? | connectionId? }`.
+- The standalone `/reporting` route still uses the token-paste flow, the
+  shared studio, and never persists user-scoped data.
+
+What changed (UI only — `src/lib/metis/*` untouched):
+
+- The form is now a **collapsing wizard**: inputs are tall before a run,
+  collapse to a summary chip + dropdown menu after.
+- A new brand-matched `<DateRangePicker>` replaced the two native date inputs.
+- The tone-context block is one unified drop-zone (textarea + file chips +
+  `Use preset ▾` dropdown on the authed flow, paste/upload only on the
+  public flow).
+- The output region is currently in an A/B between tabs and inline-disclosure
+  variants; once the user picks, the loser will be deleted.
+- The authed flow at `/app/reports` adds DB-backed tone presets via
+  `meta_tone_sources` (Round 6, `supabase/0008_meta_tone_sources.sql`).
+
+If you're touching the studio, start at
+[src/components/reporting-studio.tsx](src/components/reporting-studio.tsx) —
+the surface that owns all of the above.

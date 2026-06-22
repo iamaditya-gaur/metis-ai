@@ -179,13 +179,22 @@ export function DateRangePicker({
   const [pendingStartIso, setPendingStartIso] = useState<string | null>(null);
   const [hoverIso, setHoverIso] = useState<string | null>(null);
 
-  useEffect(() => {
+  const openPicker = () => {
+    // Reset transient picker state at open-time so re-opening the popover
+    // always starts fresh (no leftover hover highlight or partial selection).
+    setViewMonth(initialViewMonth);
+    setPendingStartIso(null);
+    setHoverIso(null);
+    setIsOpen(true);
+  };
+
+  const togglePicker = () => {
     if (isOpen) {
-      setViewMonth(initialViewMonth);
-      setPendingStartIso(null);
-      setHoverIso(null);
+      setIsOpen(false);
+    } else {
+      openPicker();
     }
-  }, [isOpen, initialViewMonth]);
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -310,7 +319,7 @@ export function DateRangePicker({
         aria-controls={popoverId}
         aria-label={ariaLabel}
         data-open={isOpen ? "true" : undefined}
-        onClick={() => setIsOpen((open) => !open)}
+        onClick={togglePicker}
       >
         <CalendarGlyph />
         <span className="date-range-picker-trigger-label">{formatRangeLabel(value)}</span>
@@ -396,7 +405,7 @@ export function DateRangePicker({
                             ? "end"
                             : undefined
                     }
-                    aria-pressed={inRange ? true : undefined}
+                    aria-selected={inRange ? true : undefined}
                     disabled={cell.disabled}
                     onClick={() => handleDayClick(cell)}
                     onMouseEnter={() => {

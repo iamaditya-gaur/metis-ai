@@ -1,17 +1,27 @@
 # Metis AI — current agent handoff
 
-**Last updated:** 2026-06-21 (end of Round 4 UX rehaul)
+**Last updated:** 2026-06-22 (after Round 9 wrap-up: production landing, history polish, code-cleanup pass)
 
 > Read this file once. Don't pre-load the other docs — they're listed in the "If you need to dig deeper" table at the bottom; open them only when the task at hand actually calls for it.
 
 ## Where things stand
 
-- **Branch:** `feat/foundation-and-shell` (not merged to `main`)
-- **Current preview URL:** https://metis-5gk3lvlxx-iamaditya-gaurs-projects.vercel.app
-- **Production URL:** https://metis-ai-nine.vercel.app (still serves the pre-Round-4 build until this branch merges)
-- **Repo + project:** GitHub `iamaditya-gaur/metis-ai`, single Vercel project, single linked Supabase project
+- **Branch:** `feat/foundation-and-shell` — fully merged into `main` (fast-forward) on 2026-06-22.
+- **Production URL:** https://metis-ai-nine.vercel.app — live on the latest build.
+- **Repo + project:** GitHub `iamaditya-gaur/metis-ai`, single Vercel project, single linked Supabase project.
+- **Auth gate:** `/app/*` requires a Supabase session. `/admin/*` requires the admin password cookie. `/`, `/reporting`, `/login`, `/signup`, `/reset-password` are public.
 
-## What just shipped on this branch (rounds 1 → 4, in order)
+## What just shipped on this branch (rounds 5 → 9, after Round 4)
+
+Round 4 already documented below. Subsequent rounds (June 21–22 sessions) added:
+
+1. **Round 5 — Reporting studio rehaul.** Collapsing-wizard input form, brand-matched `DateRangePicker` with presets, unified tone-context drop-zone (`Use preset ▾` dropdown + upload), tabs / inline-disclosure output A/B switch, sentence-case eyebrows, "READY" pill hidden at idle. Reporting brain (`src/lib/metis/*`) untouched.
+2. **Round 6 — Sidebar polish + tone-source persistence.** Conventional hamburger toggle in the sidebar header (replaced rail-edge chevron). `:has()` grid switch eliminates SSR/CSR mismatch on collapse. New `meta_tone_sources` Supabase table (RLS-scoped, migration `0008_meta_tone_sources.sql`) backs the `Use preset` dropdown. Auto-saves uploaded files; touch-on-pick.
+3. **Round 7 — Production landing page + waitlist deletion.** `/` is now a real landing page with auth-aware `LandingNav` (Sign in + Get started for visitors, Open app for signed-in). Hero / FeatureSections / FinalCta re-anchored on the reporting JTBD. `WaitlistForm` component + `/api/waitlist` route deleted. `waitlist_signups` DB table preserved.
+4. **Round 8 — Date-picker viewport-flip + Edit dropdown.** Picker auto-flips above the trigger when below-trigger space is short; max-height + scroll fallback. The studio's "Edit window" CTA became a proper dropdown (Edit inputs / Generate again).
+5. **Round 9 — History tab polish + wrap-up.** Sort dropdown (Newest / Oldest / Highest cost / Status), per-row trash delete via a server action, "Open run" CTA promoted to primary. Detail page restructured: client-style message hero at top with copy button, then operator view, metrics, and expand-on-demand details. Top-left "← History" chevron back nav (Linear / Notion pattern). Bottom "Back to history" button removed. Final cleanup pass: lint green (5 errors + 2 warnings fixed), ~200 lines of orphan CSS removed, dead `MissionControlSwitcher` deleted, stale preview URLs scrubbed from docs.
+
+## What shipped pre-merge (rounds 1 → 4, original branch work)
 
 1. **Round 1 — Auth foundation + saved Meta tokens.** Supabase Auth via `@supabase/ssr` with cookie sessions, RLS scoped by `auth.uid()`. Encrypted Meta tokens stored in `meta_connections` (AES-256-GCM, see `src/lib/crypto/token-encryption.ts`). Authed reporting flow at `/app/reports` that uses saved connections instead of re-pasting tokens.
 2. **Round 2 — Auth UI rebuild.** Crisp Inter font via `next/font`, no backdrop-filter haze, clean `.auth-card`. Auto-confirm signup pattern (`admin.createUser({ email_confirm: true })` then `signInWithPassword` on same submit).
@@ -64,11 +74,12 @@
 
 ## Likely next tasks (informed guesses based on user feedback patterns)
 
-- User clicks through Round 4 on the preview → reports remaining UX issues (high probability)
-- Polish pass on the reporting studio itself (the `<ReportingStudio>` component) — it predates Round 4 and may feel inconsistent now
-- Tooltip upgrade for collapsed-sidebar icons (currently native `title` attr — see "Honest no-go" in the plan)
-- Mobile drawer focus-trap (v1 doesn't trap focus — see same plan section)
-- Eventually: merge `feat/foundation-and-shell` → `main` (gate behind user explicit go-ahead)
+- **Per-user tone-preset management UI.** Uploads auto-save into `meta_tone_sources` today; explicit save / rename / delete from pasted text is the next UX gap (see Round 6).
+- **Mobile drawer focus-trap.** Still doesn't trap focus when the sidebar drawer is open on mobile.
+- **Tooltip upgrade for collapsed-sidebar icons.** Currently native `title` attribute — Linear-style hover tooltip would be more polished.
+- **Supabase Branching.** Preview deploys still share the production database. See `docs/handoff/supabase-branching.md`.
+- **Wire CI lint + typecheck on PRs.** `npm run lint` and `npm run build` are clean as of Round 9; locking them in via GitHub Actions would prevent regression.
+- **Legacy `/app/reporting` and `/app/reporting-new` routes.** Not linked from the new sidebar but still served. Candidate for deletion once you're confident nothing external links to them.
 
 ## Tone the user expects
 

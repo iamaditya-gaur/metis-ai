@@ -80,13 +80,13 @@ export default async function HistoryDetailPage({
       <AppShell
         eyebrow="History"
         title="Run not found"
-        description="This run either doesn't exist or belongs to a different account."
+        description="This run either does not exist or belongs to a different account."
         backHref="/app/history"
         backLabel="History"
       >
         <GlassPanel eyebrow="Missing" title="Nothing to show">
           <p className="history-detail-empty">
-            The run you're looking for isn't in your history.
+            The run you&apos;re looking for isn&apos;t in your history.
           </p>
         </GlassPanel>
       </AppShell>

@@ -264,22 +264,6 @@ export function ReportingStudio({
   const activeAccountLabel =
     accounts.find((account) => account.id === accountId)?.label ?? "No account selected";
 
-  // Auto-collapse the inputs once a result lands; the user can re-open via
-  // the summary chip's "Edit window" action. Also scroll the output region
-  // into view so the user lands on the answer, not the form.
-  useEffect(() => {
-    if (!result) return;
-    setIsInputsCollapsed(true);
-    if (typeof window !== "undefined" && outputAnchorRef.current) {
-      window.requestAnimationFrame(() => {
-        outputAnchorRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      });
-    }
-  }, [result]);
-
   useEffect(() => {
     return () => {
       if (copyResetTimeoutRef.current) {
@@ -542,6 +526,17 @@ export function ReportingStudio({
         }
 
         setResult(body);
+        // Auto-collapse the inputs and scroll the output region into view
+        // so the user lands on the answer, not the form they just submitted.
+        setIsInputsCollapsed(true);
+        if (typeof window !== "undefined") {
+          window.requestAnimationFrame(() => {
+            outputAnchorRef.current?.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
+          });
+        }
       } catch (runError) {
         setResult(null);
         setError(runError instanceof Error ? runError.message : "Reporting run failed.");

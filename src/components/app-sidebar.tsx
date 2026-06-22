@@ -52,8 +52,11 @@ export function AppSidebar({ user, defaultCollapsed = true }: Props) {
   }, [isCollapsed]);
 
   // Close the mobile drawer whenever the route changes — otherwise the
-  // overlay sticks around over the next page.
+  // overlay sticks around over the next page. This is a sync-with-external-
+  // system case (the external system is the Next.js router), so the standard
+  // "don't setState in effects" rule doesn't apply here.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMobileOpen(false);
   }, [pathname]);
 

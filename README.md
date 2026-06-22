@@ -93,6 +93,8 @@ Being honest about what's still rough:
 - Reporting eval script exists but isn't wired into CI.
 - Builder mode (`/builder`, paused-draft creation) is functional but less polished than reporting.
 
+> A few of the limits above were addressed in the 2026-06-21 / 2026-06-22 shipping rounds — see **Recently Shipped**. Notably: multi-user auth is now live, `/app/reports` is fully gated, and the open `/reporting` route still exists for token-paste runs.
+
 ## Upcoming
 
 - Email delivery (alongside Slack)
@@ -100,9 +102,16 @@ Being honest about what's still rough:
 - Multi-user authentication with per-user data isolation
 - State management for a smoother UX across the reporting flow
 - Design and interface polish
+- Per-user tone-preset management UI (uploads auto-save; explicit save/rename for pasted text is next)
+- Mobile drawer focus-trap and collapsed-sidebar tooltip upgrade
+- Wire `npm run lint` + `npm run build` checks into CI on PRs
 
 ## Recently Shipped
 
+- **2026-06-22, History tab polish + session wrap-up.** Sort + per-row delete on `/app/history`, client-style message hero on each run detail with a copy button, top-left "← History" chevron back nav. Lint and build green; ~200 lines of orphan CSS pruned.
+- **2026-06-22, Production landing page + auth-aware nav.** `/` is now a real landing page (the waitlist form is gone — the historical signups stay in the DB). Top nav switches between *Sign in / Get started* and *Open app* depending on the Supabase session.
+- **2026-06-21, Reporting studio rehaul.** Collapsing-wizard input form, brand-matched date-range picker with presets and viewport-aware flip, unified tone-context drop-zone with DB-backed *Use preset* history (`meta_tone_sources` table), output tab / inline-disclosure A/B, conventional hamburger sidebar toggle, sentence-case eyebrows. Reporting brain (`src/lib/metis/*`) untouched.
+- **2026-06-21, Auth foundation + saved Meta connections.** Supabase Auth via `@supabase/ssr` with cookie sessions and RLS scoped by `auth.uid()`. Encrypted Meta tokens stored in `meta_connections` (AES-256-GCM). Authed reporting flow at `/app/reports` uses saved connections instead of re-pasting tokens every run.
 - **2026-05-25, Tone fidelity + fact guardrails.** Compose decoupled from the factual draft, voice and fact judges in parallel, deterministic direction-flip checks, objective-aware metric selection. [PR #1](https://github.com/iamaditya-gaur/metis-ai/pull/1)
 - **2026-04-26, Observability v1.** Per-LLM-call tokens, cost, latency, fallback chain captured. Supabase persistence, `/admin/runs` trace UI behind an HMAC-signed cookie gate. [PR #2](https://github.com/iamaditya-gaur/metis-ai/pull/2) · [PR #3](https://github.com/iamaditya-gaur/metis-ai/pull/3)
 - **2026-04-22, Initial reporting + builder POC.** Real Meta data, factual report, client-style message, Slack.
