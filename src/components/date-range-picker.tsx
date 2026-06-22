@@ -160,7 +160,12 @@ export function DateRangePicker({
   const triggerId = id ?? `${generatedId}-trigger`;
   const popoverId = `${generatedId}-popover`;
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  // Auto-flip the popover above the trigger when there isn't enough room
+  // below it. Measured against the viewport at open-time + on resize while
+  // open. Approx popover height (presets rail + 2 months of grid) ~= 320px.
+  const [placement, setPlacement] = useState<"below" | "above">("below");
 
   const maxIso = maxDate ?? defaultMaxDate();
   const activePreset = useMemo(() => matchPreset(value, maxIso), [value, maxIso]);
@@ -199,6 +204,30 @@ export function DateRangePicker({
       window.removeEventListener("mousedown", onPointerDown);
       window.removeEventListener("keydown", onKeyDown);
     };
+  }, [isOpen]);
+
+  // Decide whether to open above or below the trigger based on available
+  // viewport space. Re-measure on resize so an orientation change or window
+  // resize while the popover is open still gets it right.
+  useEffect(() => {
+    if (!isOpen) return;
+    const recalc = () => {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      // Heuristic: if there's less than 360px below the trigger AND more
+      // room above, flip up. Otherwise default to below.
+      if (spaceBelow < 360 && spaceAbove > spaceBelow) {
+        setPlacement("above");
+      } else {
+        setPlacement("below");
+      }
+    };
+    recalc();
+    window.addEventListener("resize", recalc);
+    return () => window.removeEventListener("resize", recalc);
   }, [isOpen]);
 
   const handlePresetClick = (id: PresetId) => {
@@ -273,6 +302,7 @@ export function DateRangePicker({
     <div className="date-range-picker" ref={containerRef}>
       <button
         type="button"
+        ref={triggerRef}
         id={triggerId}
         className="date-range-picker-trigger"
         aria-haspopup="dialog"
@@ -293,6 +323,7 @@ export function DateRangePicker({
           role="dialog"
           aria-label={ariaLabel}
           className="date-range-picker-popover"
+          data-placement={placement}
         >
           <ul className="date-range-picker-presets" role="listbox" aria-label="Preset windows">
             {PRESETS.map((preset) => {
@@ -378,20 +409,13 @@ export function DateRangePicker({
               })}
             </div>
 
-            <div className="date-range-picker-footer">
-              <span className="date-range-picker-summary">
-                {pendingStartIso
-                  ? "Pick the end date"
-                  : `${formatRangeLabel(value)}`}
-              </span>
-              <button
-                type="button"
-                className="date-range-picker-close"
-                onClick={() => setIsOpen(false)}
-              >
-                Done
-              </button>
-            </div>
+            {pendingStartIso ? (
+              <div className="date-range-picker-footer">
+                <span className="date-range-picker-summary">
+                  Pick the end date
+                </span>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

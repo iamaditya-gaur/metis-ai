@@ -247,6 +247,8 @@ export function ReportingStudio({
   // public /reporting route stays in-session without history.
   const [tonePresets, setTonePresets] = useState<ToneSource[]>([]);
   const [activePresetId, setActivePresetId] = useState<string>("");
+  const [isEditMenuOpen, setIsEditMenuOpen] = useState(false);
+  const editMenuRef = useRef<HTMLDivElement | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const toneExamples = buildToneContextValue(manualToneExamples, uploadedToneFiles);
@@ -285,6 +287,25 @@ export function ReportingStudio({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!isEditMenuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!editMenuRef.current) return;
+      if (!editMenuRef.current.contains(event.target as Node)) {
+        setIsEditMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsEditMenuOpen(false);
+    };
+    window.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isEditMenuOpen]);
 
   // Load reusable tone presets for the authed flow. The public /reporting
   // route can't persist (no auth), so we skip the fetch there entirely.
@@ -487,8 +508,7 @@ export function ReportingStudio({
     resetCopyStateSoon();
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const runReport = () => {
     setCopyState("idle");
 
     if (!accountId) {
@@ -529,6 +549,11 @@ export function ReportingStudio({
     });
   };
 
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    runReport();
+  };
+
   const hasResult = result !== null;
   const showCollapsedChip = isInputsCollapsed && hasResult && !isPending;
 
@@ -559,13 +584,58 @@ export function ReportingStudio({
           </div>
           <div className="reporting-studio-summary-actions">
             {statusPill}
-            <button
-              type="button"
-              className="reporting-studio-summary-edit"
-              onClick={() => setIsInputsCollapsed(false)}
-            >
-              Edit window
-            </button>
+            <div className="reporting-studio-edit-menu" ref={editMenuRef}>
+              <button
+                type="button"
+                className="reporting-studio-summary-edit"
+                aria-haspopup="menu"
+                aria-expanded={isEditMenuOpen}
+                onClick={() => setIsEditMenuOpen((open) => !open)}
+              >
+                <span>Edit</span>
+                <span
+                  className="reporting-studio-edit-chevron"
+                  data-open={isEditMenuOpen ? "true" : undefined}
+                  aria-hidden="true"
+                />
+              </button>
+              {isEditMenuOpen ? (
+                <ul className="reporting-studio-edit-menu-list" role="menu">
+                  <li role="none">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="reporting-studio-edit-menu-item"
+                      onClick={() => {
+                        setIsEditMenuOpen(false);
+                        setIsInputsCollapsed(false);
+                      }}
+                    >
+                      <span className="reporting-studio-edit-menu-label">Edit inputs</span>
+                      <span className="reporting-studio-edit-menu-help">
+                        Re-open the form to change account, window, or tone.
+                      </span>
+                    </button>
+                  </li>
+                  <li role="none">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="reporting-studio-edit-menu-item"
+                      onClick={() => {
+                        setIsEditMenuOpen(false);
+                        runReport();
+                      }}
+                    >
+                      <span className="reporting-studio-edit-menu-label">Generate again</span>
+                      <span className="reporting-studio-edit-menu-help">
+                        Re-run with the current settings.
+                      </span>
+                    </button>
+                  </li>
+                </ul>
+              ) : null}
+            </div>
           </div>
         </div>
       ) : (
