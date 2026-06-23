@@ -6,7 +6,7 @@ On my own client work it saves me roughly **45 minutes a week and an hour every 
 
 ## Try It
 
-- **Reporting flow:** [metis-ai-nine.vercel.app/reporting](https://metis-ai-nine.vercel.app/reporting)
+- **Production App:** [metis-ai-nine.vercel.app](https://metis-ai-nine.vercel.app)
 - **Admin trace UI** (gated): [metis-ai-nine.vercel.app/admin/runs](https://metis-ai-nine.vercel.app/admin/runs)
 
 Paste a Meta access token, pick an ad account, run a real report.
