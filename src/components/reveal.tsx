@@ -14,17 +14,21 @@ type RevealProps = {
   className?: string;
   /** Stagger offset in ms, applied via --fx-delay. */
   delay?: number;
+  /** Reveal a single time instead of replaying on every scroll pass. */
+  once?: boolean;
   children?: ReactNode;
 } & Record<string, unknown>;
 
-// Adds data-revealed once the element scrolls into view, so CSS can
-// transition it in. Reveals exactly once; the hidden initial state only
-// applies when scripting is enabled (see .fx-reveal in globals.css), so
-// content is never lost if JS fails.
+// Toggles data-revealed as the element enters and fully leaves the viewport,
+// so the CSS entrance replays on every scroll pass. The gap between the two
+// thresholds (0 and 0.12) is hysteresis — no flicker at viewport edges. The
+// hidden initial state only applies when scripting is enabled (see .fx-reveal
+// in globals.css), so content is never lost if JS fails.
 export function Reveal({
   as = "div",
   className,
   delay = 0,
+  once = false,
   children,
   ...rest
 }: RevealProps) {
@@ -42,18 +46,21 @@ export function Reveal({
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (entry.isIntersecting) {
-            (entry.target as HTMLElement).dataset.revealed = "true";
-            observer.unobserve(entry.target);
+          const el = entry.target as HTMLElement;
+          if (entry.intersectionRatio >= 0.12) {
+            el.dataset.revealed = "true";
+            if (once) observer.unobserve(el);
+          } else if (!entry.isIntersecting && !once) {
+            delete el.dataset.revealed;
           }
         }
       },
-      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" },
+      { threshold: [0, 0.12] },
     );
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [once]);
 
   const style = delay
     ? ({ "--fx-delay": `${delay}ms` } as CSSProperties)
