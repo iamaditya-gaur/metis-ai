@@ -1,7 +1,9 @@
+import { Reveal } from "@/components/reveal";
+
 export function FounderNote() {
   return (
     <section className="section section-block">
-      <figure className="founder-note">
+      <Reveal as="figure" className="founder-note">
         <blockquote className="founder-note-quote">
           I built Metis because I was the one rewriting the same Meta ads
           report every Friday night — same numbers, different words, every
@@ -10,7 +12,7 @@ export function FounderNote() {
         <figcaption className="founder-note-attribution">
           Why Metis exists
         </figcaption>
-      </figure>
+      </Reveal>
     </section>
   );
 }

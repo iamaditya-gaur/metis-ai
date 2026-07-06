@@ -6,7 +6,7 @@ type LandingNavProps = {
 
 export function LandingNav({ user }: LandingNavProps) {
   return (
-    <header className="landing-nav">
+    <header className="landing-nav fx-load--drop">
       <Link href="/" className="landing-nav-brand" aria-label="Metis AI home">
         <span className="landing-nav-mark" aria-hidden="true">
           M

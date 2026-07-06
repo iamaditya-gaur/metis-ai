@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { Reveal } from "@/components/reveal";
+
 const trustItems = [
   "Numbers come straight from Meta — nothing invented.",
   "The message mirrors how you actually write to clients.",
@@ -34,12 +36,14 @@ export function Hero() {
     <section className="section section-block">
       <div className="hero-grid hero-grid--single">
         <div className="hero-card stack-lg p-6 md:p-8">
-          <span className="kicker">Meta ads reporting, minus the rewrite</span>
+          <span className="kicker fx-load fx-d1">
+            Meta ads reporting, minus the rewrite
+          </span>
           <div className="stack-md">
-            <h1 className="display-title">
+            <h1 className="display-title fx-load fx-load--stamp fx-d2">
               Never write the same ads report from scratch again.
             </h1>
-            <p className="section-copy">
+            <p className="section-copy fx-load fx-d3">
               Connect your Meta account and Metis turns real campaign numbers
               into a send-ready update for your clients — or your own brand.
               Written in your voice, not a template&apos;s, and ready in
@@ -47,7 +51,7 @@ export function Hero() {
             </p>
           </div>
 
-          <div className="hero-cta-row">
+          <div className="hero-cta-row fx-load fx-d4">
             <Link href="/signup" className="hero-cta hero-cta--primary">
               Get started — it&apos;s free
             </Link>
@@ -56,7 +60,7 @@ export function Hero() {
             </Link>
           </div>
 
-          <div className="trust-strip">
+          <div className="trust-strip fx-load fx-d5">
             {trustItems.map((item) => (
               <div key={item} className="trust-chip">
                 {item}
@@ -67,12 +71,17 @@ export function Hero() {
       </div>
 
       <div className="metrics-grid pt-6">
-        {metrics.map((metric) => (
-          <article key={metric.label} className="metric-card">
+        {metrics.map((metric, index) => (
+          <Reveal
+            as="article"
+            key={metric.label}
+            className="metric-card"
+            delay={index * 80}
+          >
             <strong className="eyebrow-label">{metric.label}</strong>
             <span className="metric-number">{metric.value}</span>
             <span className="metric-label">{metric.description}</span>
-          </article>
+          </Reveal>
         ))}
       </div>
     </section>

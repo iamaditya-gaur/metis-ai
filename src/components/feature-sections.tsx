@@ -1,3 +1,5 @@
+import { Reveal } from "@/components/reveal";
+
 const benefitCards = [
   {
     title: "Faster reporting",
@@ -55,7 +57,7 @@ export function FeatureSections() {
   return (
     <>
       <section className="section section-block stack-lg">
-        <div className="stack-md">
+        <Reveal className="stack-md">
           <span className="kicker">What you get</span>
           <h2 className="section-title">
             The factual read and the client-style message, side by side.
@@ -65,10 +67,10 @@ export function FeatureSections() {
             numbers, and one that&apos;s ready to send — sounding like the
             person who runs the account actually wrote it.
           </p>
-        </div>
+        </Reveal>
 
         <div className="split-grid">
-          <article className="surface-card surface-card--accent">
+          <Reveal as="article" className="surface-card surface-card--accent">
             <span className="surface-label">Operator view</span>
             <h3 className="text-3xl font-semibold uppercase tracking-tight">
               Numbers and notes you can stand behind.
@@ -83,9 +85,13 @@ export function FeatureSections() {
               <li>Executive read, what changed, risks, and next actions.</li>
               <li>Honest empty states — never invented numbers.</li>
             </ul>
-          </article>
+          </Reveal>
 
-          <article className="surface-card surface-card--muted">
+          <Reveal
+            as="article"
+            className="surface-card surface-card--muted"
+            delay={120}
+          >
             <span className="surface-label bg-[var(--accent-3)]">Client view</span>
             <h3 className="text-3xl font-semibold uppercase tracking-tight">
               A send-ready message in your voice.
@@ -100,60 +106,78 @@ export function FeatureSections() {
               <li>Save tone presets and reuse them across runs.</li>
               <li>One-click copy into Slack, email, or a doc.</li>
             </ul>
-          </article>
+          </Reveal>
         </div>
       </section>
 
       <section className="section section-block stack-lg">
-        <div className="accent-rule" aria-hidden="true" />
+        <Reveal
+          className="accent-rule fx-reveal--rule"
+          aria-hidden="true"
+        />
         <div className="benefits-grid">
-          {benefitCards.map((card) => (
-            <article key={card.title} className="surface-card">
+          {benefitCards.map((card, index) => (
+            <Reveal
+              as="article"
+              key={card.title}
+              className="surface-card"
+              delay={index * 80}
+            >
               <span className="eyebrow-label">Why it matters</span>
               <h3 className="text-2xl font-semibold uppercase tracking-tight">
                 {card.title}
               </h3>
               <p className="section-copy pt-3">{card.body}</p>
-            </article>
+            </Reveal>
           ))}
         </div>
       </section>
 
       <section className="section section-block stack-lg">
-        <div className="stack-md">
+        <Reveal className="stack-md">
           <span className="kicker">How it works</span>
           <h2 className="section-title">
             Three steps from connection to copy-and-paste.
           </h2>
-        </div>
+        </Reveal>
 
         <div className="steps-grid">
           {steps.map((step, index) => (
-            <article key={step.title} className="step-card stack-sm">
+            <Reveal
+              as="article"
+              key={step.title}
+              className="step-card stack-sm"
+              delay={index * 80}
+            >
               <span className="step-index">{String(index + 1).padStart(2, "0")}</span>
               <h3 className="text-2xl font-semibold uppercase tracking-tight">
                 {step.title}
               </h3>
               <p className="section-copy">{step.body}</p>
-            </article>
+            </Reveal>
           ))}
         </div>
       </section>
 
       <section className="section section-block stack-lg">
-        <div className="stack-md">
+        <Reveal className="stack-md">
           <span className="kicker">Before you connect anything</span>
           <h2 className="section-title">
             The questions every media buyer asks first.
           </h2>
-        </div>
+        </Reveal>
 
         <div className="faq-grid">
-          {faqs.map((faq) => (
-            <article key={faq.question} className="faq-card stack-sm">
+          {faqs.map((faq, index) => (
+            <Reveal
+              as="article"
+              key={faq.question}
+              className="faq-card stack-sm"
+              delay={index * 80}
+            >
               <h3 className="faq-question">{faq.question}</h3>
               <p className="section-copy">{faq.answer}</p>
-            </article>
+            </Reveal>
           ))}
         </div>
       </section>
