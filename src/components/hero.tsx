@@ -9,13 +9,13 @@ const trustItems = [
 const metrics = [
   {
     label: "Built for",
-    value: "Operators",
-    description: "Solo media buyers, agency leads, and in-house performance teams.",
+    value: "Media buyers",
+    description: "Solo buyers, agency leads, and in-house performance teams.",
   },
   {
     label: "Replaces",
     value: "45 min",
-    description: "The weekly rewrite of the same client recap from a blank doc.",
+    description: "The same recap rewritten from a blank doc — weekly, monthly, whatever your cadence.",
   },
   {
     label: "Returns",
@@ -34,15 +34,16 @@ export function Hero() {
     <section className="section section-block">
       <div className="hero-grid hero-grid--single">
         <div className="hero-card stack-lg p-6 md:p-8">
-          <span className="kicker">Reporting for Meta operators</span>
+          <span className="kicker">Meta ads reporting, minus the rewrite</span>
           <div className="stack-md">
             <h1 className="display-title">
-              Stop rewriting your Meta ads report every Friday night.
+              Never write the same ads report from scratch again.
             </h1>
             <p className="section-copy">
               Connect your Meta account and Metis turns real campaign numbers
-              into a client-ready update — written in your voice, not a
-              template&apos;s. Grounded in your data, ready to send in seconds.
+              into a send-ready update for your clients — or your own brand.
+              Written in your voice, not a template&apos;s, and ready in
+              seconds.
             </p>
           </div>
 
@@ -68,8 +69,8 @@ export function Hero() {
       <div className="metrics-grid pt-6">
         {metrics.map((metric) => (
           <article key={metric.label} className="metric-card">
-            <span className="metric-number">{metric.value}</span>
             <strong className="eyebrow-label">{metric.label}</strong>
+            <span className="metric-number">{metric.value}</span>
             <span className="metric-label">{metric.description}</span>
           </article>
         ))}

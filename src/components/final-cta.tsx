@@ -7,7 +7,7 @@ export function FinalCta() {
         <div className="stack-md">
           <span className="kicker">Ready when you are</span>
           <h2 className="section-title">
-            Stop rewriting the same client update every week.
+            Stop rewriting the same update, report after report.
           </h2>
           <p className="section-copy">
             Connect a Meta account, drop in a few past updates, and Metis

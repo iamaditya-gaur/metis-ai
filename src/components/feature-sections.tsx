@@ -1,7 +1,7 @@
 const benefitCards = [
   {
     title: "Faster reporting",
-    body: "Cut the 45-minute Sunday-night recap to under five — and send the update before your client thinks to ask for it.",
+    body: "Cut the 45-minute recap ritual to under five — and send the update before anyone thinks to ask for it.",
   },
   {
     title: "Grounded in real data",
@@ -27,7 +27,7 @@ const faqs = [
   {
     question: "Will this actually sound like me, or like generic AI copy?",
     answer:
-      "Drop in a few of your past client updates once. Metis learns your structure, phrasing, and tone, and checks every future report against that voice before showing it to you.",
+      "Drop in a few of your past updates once. Metis learns your structure, phrasing, and tone, and checks every future report against that voice before showing it to you.",
   },
   {
     question: "What happens when early access ends?",
@@ -47,7 +47,7 @@ const steps = [
   },
   {
     title: "Get a send-ready update",
-    body: "A factual operator read on the left, a client-style message on the right. Copy, paste, ship.",
+    body: "The factual read on the left, the send-ready message on the right. Copy, paste, ship.",
   },
 ];
 
@@ -61,9 +61,9 @@ export function FeatureSections() {
             The factual read and the client-style message, side by side.
           </h2>
           <p className="section-copy">
-            Metis splits every run into two views: the operator can verify the
-            numbers, and the client gets a message that sounds like the person
-            who runs the account actually wrote it.
+            Metis splits every report into two views: one where you verify the
+            numbers, and one that&apos;s ready to send — sounding like the
+            person who runs the account actually wrote it.
           </p>
         </div>
 
@@ -144,7 +144,7 @@ export function FeatureSections() {
         <div className="stack-md">
           <span className="kicker">Before you connect anything</span>
           <h2 className="section-title">
-            The questions every operator asks first.
+            The questions every media buyer asks first.
           </h2>
         </div>
 
