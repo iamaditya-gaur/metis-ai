@@ -414,6 +414,62 @@ input {
   text-transform: uppercase;
 }
 
+.founder-note {
+  position: relative;
+  margin: 0;
+  border: 3px solid var(--line);
+  background: #fff4e0;
+  padding: 1.6rem 1.6rem 1.4rem 2.6rem;
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--accent-2);
+}
+
+.founder-note::before {
+  content: "\201C";
+  position: absolute;
+  top: 0.15rem;
+  left: 0.65rem;
+  font-family: var(--font-display), sans-serif;
+  font-size: 3.4rem;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.founder-note-quote {
+  margin: 0;
+  max-width: 52rem;
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.founder-note-attribution {
+  margin-top: 0.9rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.faq-grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.faq-card {
+  border: 3px solid var(--line);
+  background: #fff7ea;
+  padding: 1.4rem;
+  box-shadow: 6px 6px 0 var(--accent-2);
+}
+
+.faq-question {
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 @media (min-width: 768px) {
   .hero-grid {
     grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
@@ -435,6 +491,10 @@ input {
 
   .metrics-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .faq-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .footer-grid {

@@ -1,5 +1,6 @@
 import { FeatureSections } from "@/components/feature-sections";
 import { FinalCta } from "@/components/final-cta";
+import { FounderNote } from "@/components/founder-note";
 import { Hero } from "@/components/hero";
 import { LandingNav } from "@/components/landing-nav";
 import { createClient } from "@/lib/supabase/server";
@@ -26,6 +27,7 @@ export default async function Home() {
       <div className="page-noise" aria-hidden="true" />
       <LandingNav user={userEmail !== null ? { email: userEmail } : null} />
       <Hero />
+      <FounderNote />
       <FeatureSections />
       <FinalCta />
     </main>

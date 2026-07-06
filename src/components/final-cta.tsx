@@ -10,8 +10,8 @@ export function FinalCta() {
             Stop rewriting the same client update every week.
           </h2>
           <p className="section-copy">
-            Connect a Meta account, drop in a few past updates, and let Metis
-            handle the recap. Free while in early access.
+            Connect a Meta account, drop in a few past updates, and Metis
+            handles the recap from here on out. Free while in early access.
           </p>
         </div>
 

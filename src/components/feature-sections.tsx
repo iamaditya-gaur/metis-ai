@@ -1,7 +1,7 @@
 const benefitCards = [
   {
     title: "Faster reporting",
-    body: "Cut the 45-minute Sunday-night recap to under five. One Meta connection, one window, one click.",
+    body: "Cut the 45-minute Sunday-night recap to under five — and send the update before your client thinks to ask for it.",
   },
   {
     title: "Grounded in real data",
@@ -10,6 +10,29 @@ const benefitCards = [
   {
     title: "Sounds like you",
     body: "Drop in a few past updates and Metis mirrors your voice — same structure, same phrasing, no AI tells.",
+  },
+];
+
+const faqs = [
+  {
+    question: "Is my Meta access token safe?",
+    answer:
+      "Yes. Tokens are encrypted at rest (AES-256) and never appear in the generated report or client message.",
+  },
+  {
+    question: "Will it invent numbers if the data's messy?",
+    answer:
+      "No. Every metric comes straight from Meta's Insights API for the exact window you pick. If something's missing, Metis says so — it doesn't guess.",
+  },
+  {
+    question: "Will this actually sound like me, or like generic AI copy?",
+    answer:
+      "Drop in a few of your past client updates once. Metis learns your structure, phrasing, and tone, and checks every future report against that voice before showing it to you.",
+  },
+  {
+    question: "What happens when early access ends?",
+    answer:
+      "Metis is free right now, no card required. If pricing changes later, you'll hear about it before anything changes on your end.",
   },
 ];
 
@@ -112,6 +135,24 @@ export function FeatureSections() {
                 {step.title}
               </h3>
               <p className="section-copy">{step.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="section section-block stack-lg">
+        <div className="stack-md">
+          <span className="kicker">Before you connect anything</span>
+          <h2 className="section-title">
+            The questions every operator asks first.
+          </h2>
+        </div>
+
+        <div className="faq-grid">
+          {faqs.map((faq) => (
+            <article key={faq.question} className="faq-card stack-sm">
+              <h3 className="faq-question">{faq.question}</h3>
+              <p className="section-copy">{faq.answer}</p>
             </article>
           ))}
         </div>

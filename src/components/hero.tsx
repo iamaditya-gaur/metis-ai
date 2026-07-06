@@ -2,8 +2,8 @@ import Link from "next/link";
 
 const trustItems = [
   "Numbers come straight from Meta — nothing invented.",
-  "The final message mirrors your past client updates.",
-  "Copy and paste into Slack in one click.",
+  "The message mirrors how you actually write to clients.",
+  "Copy, paste, send — no editing pass needed.",
 ];
 
 const metrics = [
@@ -37,12 +37,12 @@ export function Hero() {
           <span className="kicker">Reporting for Meta operators</span>
           <div className="stack-md">
             <h1 className="display-title">
-              Meta ads reports that sound like you wrote them.
+              Stop rewriting your Meta ads report every Friday night.
             </h1>
             <p className="section-copy">
-              Connect your Meta account, pick a reporting window, and Metis
-              turns the data into a send-ready client update — grounded in
-              your numbers, written in your voice.
+              Connect your Meta account and Metis turns real campaign numbers
+              into a client-ready update — written in your voice, not a
+              template&apos;s. Grounded in your data, ready to send in seconds.
             </p>
           </div>
 
