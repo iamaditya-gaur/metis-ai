@@ -1,7 +1,9 @@
 import { FeatureSections } from "@/components/feature-sections";
 import { FinalCta } from "@/components/final-cta";
+import { FounderNote } from "@/components/founder-note";
 import { Hero } from "@/components/hero";
 import { LandingNav } from "@/components/landing-nav";
+import { Ticker } from "@/components/ticker";
 import { createClient } from "@/lib/supabase/server";
 
 // Read the signed-in user from cookies so the nav CTA is correct on first
@@ -26,6 +28,8 @@ export default async function Home() {
       <div className="page-noise" aria-hidden="true" />
       <LandingNav user={userEmail !== null ? { email: userEmail } : null} />
       <Hero />
+      <Ticker />
+      <FounderNote />
       <FeatureSections />
       <FinalCta />
     </main>

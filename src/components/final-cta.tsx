@@ -1,17 +1,19 @@
 import Link from "next/link";
 
+import { Reveal } from "@/components/reveal";
+
 export function FinalCta() {
   return (
     <section className="section section-block pb-10">
-      <div className="cta-panel cta-panel--final">
+      <Reveal className="cta-panel cta-panel--final">
         <div className="stack-md">
           <span className="kicker">Ready when you are</span>
           <h2 className="section-title">
-            Stop rewriting the same client update every week.
+            Stop rewriting the same update, report after report.
           </h2>
           <p className="section-copy">
-            Connect a Meta account, drop in a few past updates, and let Metis
-            handle the recap. Free while in early access.
+            Connect a Meta account, drop in a few past updates, and Metis
+            handles the recap from here on out. Free while in early access.
           </p>
         </div>
 
@@ -28,7 +30,7 @@ export function FinalCta() {
           No card required. You can connect a Meta account whenever you&apos;re
           ready.
         </p>
-      </div>
+      </Reveal>
     </section>
   );
 }

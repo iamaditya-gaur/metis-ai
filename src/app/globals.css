@@ -414,6 +414,62 @@ input {
   text-transform: uppercase;
 }
 
+.founder-note {
+  position: relative;
+  margin: 0;
+  border: 3px solid var(--line);
+  background: #fff4e0;
+  padding: 1.6rem 1.6rem 1.4rem 2.6rem;
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--accent-2);
+}
+
+.founder-note::before {
+  content: "\201C";
+  position: absolute;
+  top: 0.15rem;
+  left: 0.65rem;
+  font-family: var(--font-display), sans-serif;
+  font-size: 3.4rem;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.founder-note-quote {
+  margin: 0;
+  max-width: 52rem;
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.founder-note-attribution {
+  margin-top: 0.9rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.faq-grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.faq-card {
+  border: 3px solid var(--line);
+  background: #fff7ea;
+  padding: 1.4rem;
+  box-shadow: 6px 6px 0 var(--accent-2);
+}
+
+.faq-question {
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 @media (min-width: 768px) {
   .hero-grid {
     grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
@@ -435,6 +491,10 @@ input {
 
   .metrics-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .faq-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .footer-grid {
@@ -4023,7 +4083,12 @@ input {
   font-weight: 600;
   letter-spacing: 0.01em;
   text-decoration: none;
-  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    transform 150ms var(--ease-snap),
+    box-shadow 150ms var(--ease-snap);
 }
 
 .landing-nav-cta--ghost {
@@ -4039,12 +4104,19 @@ input {
 .landing-nav-cta--primary {
   background: var(--accent);
   color: #fff8ed;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--line);
+  box-shadow: 3px 3px 0 var(--line);
 }
 
 .landing-nav-cta--primary:hover {
   background: #bf4b22;
-  border-color: #bf4b22;
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--line);
+}
+
+.landing-nav-cta--primary:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--line);
 }
 
 @media (max-width: 600px) {
@@ -4076,31 +4148,53 @@ input {
   font-weight: 700;
   letter-spacing: 0.01em;
   text-decoration: none;
-  transition: background 120ms ease, transform 120ms ease, border-color 120ms ease, color 120ms ease;
+  transition:
+    background 150ms ease,
+    transform 150ms var(--ease-snap),
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms var(--ease-snap);
+}
+
+.hero-cta:focus-visible,
+.landing-nav-cta:focus-visible {
+  outline: 3px solid var(--accent-3);
+  outline-offset: 2px;
 }
 
 .hero-cta--primary {
   background: var(--accent);
   color: #fff8ed;
-  border: 2px solid var(--accent);
-  box-shadow: 0 12px 30px -16px rgb(213 93 49 / 0.6);
+  border: 2px solid var(--line);
+  box-shadow: 4px 4px 0 var(--line);
 }
 
 .hero-cta--primary:hover {
   background: #bf4b22;
-  border-color: #bf4b22;
-  transform: translateY(-1px);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--line);
+}
+
+.hero-cta--primary:active {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 var(--line);
 }
 
 .hero-cta--ghost {
   background: transparent;
   color: var(--ink);
-  border: 2px solid rgb(63 54 44 / 0.2);
+  border: 2px solid var(--line);
 }
 
 .hero-cta--ghost:hover {
-  background: rgb(255 248 236 / 0.6);
-  border-color: rgb(63 54 44 / 0.36);
+  background: #fff6e8;
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--line);
+}
+
+.hero-cta--ghost:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--line);
 }
 
 /* ---- Final CTA panel --------------------------------------------------- */
@@ -4310,4 +4404,253 @@ input {
   margin: 0;
   font-size: 0.94rem;
   color: var(--product-ink-soft);
+}
+
+/* ---------------------------------------------------------------------------
+   Landing motion system
+   Hard, snappy motion in the page's own language: elements rise and settle,
+   buttons press into their offset shadow. Transform/opacity only, one-time
+   reveals, everything off under prefers-reduced-motion.
+--------------------------------------------------------------------------- */
+
+:root {
+  --ease-snap: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --fx-rise: 18px;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --fx-rise: 12px;
+  }
+}
+
+@keyframes fx-rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--fx-rise));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fx-stamp {
+  from {
+    opacity: 0;
+    transform: translateY(var(--fx-rise)) scale(1.03);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fx-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fx-draw {
+  from {
+    opacity: 0;
+    transform: scaleX(0.2);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes fx-ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Page-load sequence (hero + nav) */
+.fx-load {
+  animation: fx-rise 0.5s var(--ease-snap) both;
+  animation-delay: var(--fx-delay, 0ms);
+}
+
+.fx-load--stamp {
+  animation-name: fx-stamp;
+}
+
+.fx-load--drop {
+  animation: fx-drop 0.4s var(--ease-snap) both;
+}
+
+.fx-d1 {
+  --fx-delay: 60ms;
+}
+
+.fx-d2 {
+  --fx-delay: 140ms;
+}
+
+.fx-d3 {
+  --fx-delay: 220ms;
+}
+
+.fx-d4 {
+  --fx-delay: 300ms;
+}
+
+.fx-d5 {
+  --fx-delay: 380ms;
+}
+
+/* Scroll reveals. The Reveal component sets data-revealed in view; the
+   hidden state only exists when scripting is on, so nothing disappears
+   without JS. No forward fill on the animation — hover transforms take
+   over cleanly once the entrance finishes. */
+@media (scripting: enabled) {
+  .fx-reveal:not([data-revealed]) {
+    opacity: 0;
+  }
+}
+
+.fx-reveal[data-revealed] {
+  animation: fx-rise 0.45s var(--ease-snap) backwards;
+  animation-delay: var(--fx-delay, 0ms);
+}
+
+.fx-reveal--rule {
+  transform-origin: left center;
+}
+
+.fx-reveal--rule[data-revealed] {
+  animation-name: fx-draw;
+  animation-duration: 0.6s;
+}
+
+/* Card hover lift — desktop pointers only */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .surface-card,
+  .metric-card,
+  .step-card,
+  .faq-card,
+  .founder-note {
+    transition:
+      transform 150ms var(--ease-snap),
+      box-shadow 150ms var(--ease-snap);
+  }
+
+  .surface-card:hover,
+  .metric-card:hover {
+    transform: translate(-3px, -3px);
+    box-shadow: calc(var(--shadow-offset) + 3px) calc(var(--shadow-offset) + 3px)
+      0 var(--line);
+  }
+
+  .step-card:hover {
+    transform: translate(-3px, -3px);
+    box-shadow: 9px 9px 0 var(--accent-3);
+  }
+
+  .faq-card:hover {
+    transform: translate(-3px, -3px);
+    box-shadow: 9px 9px 0 var(--accent-2);
+  }
+
+  .founder-note:hover {
+    transform: translate(-3px, -3px);
+    box-shadow: calc(var(--shadow-offset) + 3px) calc(var(--shadow-offset) + 3px)
+      0 var(--accent-2);
+  }
+
+  .step-index {
+    transition: transform 150ms var(--ease-snap);
+  }
+
+  .step-card:hover .step-index {
+    transform: rotate(-8deg) scale(1.08);
+  }
+}
+
+/* Metrics ticker — full-bleed band between hero and founder note */
+.ticker {
+  overflow: hidden;
+  margin: 0.9rem 0 0.4rem;
+  border-top: 3px solid var(--line);
+  border-bottom: 3px solid var(--line);
+  background: var(--line);
+  color: var(--paper);
+  padding: 0.6rem 0;
+}
+
+.ticker-track {
+  display: flex;
+  width: max-content;
+  animation: fx-ticker 32s linear infinite;
+}
+
+.ticker:hover .ticker-track {
+  animation-play-state: paused;
+}
+
+.ticker-item {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 2.4rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ticker-item::after {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-left: 2.4rem;
+  transform: rotate(45deg);
+  background: var(--accent);
+}
+
+.ticker-item:nth-child(3n + 2)::after {
+  background: var(--accent-2);
+}
+
+.ticker-item:nth-child(3n)::after {
+  background: var(--accent-3);
+}
+
+/* Kill all landing motion for reduced-motion users */
+@media (prefers-reduced-motion: reduce) {
+  .fx-load,
+  .fx-load--drop,
+  .fx-reveal[data-revealed],
+  .ticker-track {
+    animation: none;
+  }
+
+  .fx-reveal:not([data-revealed]) {
+    opacity: 1;
+  }
+
+  .hero-cta,
+  .landing-nav-cta {
+    transition: none;
+  }
+
+  .hero-cta:hover,
+  .hero-cta:active,
+  .landing-nav-cta--primary:hover,
+  .landing-nav-cta--primary:active {
+    transform: none;
+  }
 }
