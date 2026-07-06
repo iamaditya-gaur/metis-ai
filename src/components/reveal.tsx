@@ -1,12 +1,12 @@
 "use client";
 
 import {
-  createElement,
   useEffect,
   useRef,
   type CSSProperties,
   type ElementType,
   type ReactNode,
+  type Ref,
 } from "react";
 
 type RevealProps = {
@@ -19,11 +19,14 @@ type RevealProps = {
   children?: ReactNode;
 } & Record<string, unknown>;
 
-// Toggles data-revealed as the element enters and fully leaves the viewport,
-// so the CSS entrance replays on every scroll pass. The gap between the two
-// thresholds (0 and 0.12) is hysteresis — no flicker at viewport edges. The
-// hidden initial state only applies when scripting is enabled (see .fx-reveal
-// in globals.css), so content is never lost if JS fails.
+// Reveals on downward entry only: data-revealed is set when the element
+// scrolls into view, kept when it leaves through the top (so scrolling back
+// up never replays animations), and cleared only when it leaves through the
+// bottom — re-arming the entrance for the next downward pass. The gap
+// between the two thresholds (0 and 0.12) is hysteresis — no flicker at
+// viewport edges. The hidden initial state only applies when scripting is
+// enabled (see .fx-reveal in globals.css), so content is never lost if JS
+// fails.
 export function Reveal({
   as = "div",
   className,
@@ -50,7 +53,11 @@ export function Reveal({
           if (entry.intersectionRatio >= 0.12) {
             el.dataset.revealed = "true";
             if (once) observer.unobserve(el);
-          } else if (!entry.isIntersecting && !once) {
+          } else if (
+            !entry.isIntersecting &&
+            !once &&
+            entry.boundingClientRect.top > 0
+          ) {
             delete el.dataset.revealed;
           }
         }
@@ -66,14 +73,16 @@ export function Reveal({
     ? ({ "--fx-delay": `${delay}ms` } as CSSProperties)
     : undefined;
 
-  return createElement(
-    as,
-    {
-      ...rest,
-      ref,
-      className: className ? `fx-reveal ${className}` : "fx-reveal",
-      style,
-    },
-    children,
+  const Tag = as;
+
+  return (
+    <Tag
+      {...rest}
+      ref={ref as Ref<HTMLElement>}
+      className={className ? `fx-reveal ${className}` : "fx-reveal"}
+      style={style}
+    >
+      {children}
+    </Tag>
   );
 }
