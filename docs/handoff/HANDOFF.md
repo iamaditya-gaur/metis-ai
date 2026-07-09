@@ -66,7 +66,7 @@ Round 4 already documented below. Subsequent rounds (June 21–22 sessions) adde
 
 | Question | File to open |
 |---|---|
-| BYOK LLM keys + Meta OAuth — plan, compliance, feasibility | `docs/research/byok-and-meta-oauth.md` |
+| BYOK LLM keys + Meta OAuth + agent architecture / LangChain / LangGraph verdict | `docs/research/byok-and-meta-oauth.md` |
 | What does the reporting brain actually do? | `docs/reporting-context.md` (long — only read if user asks about reporting logic) |
 | How is the standalone `/reporting` product structured? | `docs/maas-context.md` |
 | How does Supabase env loading work? | `src/lib/supabase/env.ts` + `src/lib/supabase/{server,admin,client,middleware}.ts` |

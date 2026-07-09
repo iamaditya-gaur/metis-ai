@@ -1,8 +1,11 @@
-# research: bring-your-own-key llm calls + meta oauth connect
+# research: byok llm keys + meta oauth connect + agent architecture / langchain
 
 **date:** 2026-07-09 · **branch:** `feat/byok-and-meta-oauth` (off `origin/main` @ `ba10f6a`) · **status:** research only, no code changed
 
-two production-readiness gaps, researched together because they share one solution shape: per-user credentials, encrypted at rest, connected with as few clicks as possible.
+three PM questions answered:
+1. per-user llm keys (byok) — see below
+2. one-click meta connect — see below
+3. current agent structure + is langchain/langgraph worth adopting — see final section
 
 ---
 
@@ -98,6 +101,94 @@ so early customers can be onboarded as testers while review is pending. per [met
 
 ---
 
+---
+
+## 3. current "agent" structure + langchain / langgraph question
+
+### what the reporting engine actually does today (plain english)
+
+metis today is **not a chatbot agent**. it's a **pipeline** — a fixed sequence of steps where the ai plays specific, small roles. one report = one run of the pipeline. the file `src/lib/metis/reporting.ts` (function `runReportingWorkflow`) is the whole conductor.
+
+the steps, in order:
+
+1. **pull the numbers.** call meta ads api → get insights (spend, ctr, cpc, etc.) for the date range. no ai.
+2. **pull the campaign changes.** call meta again for the activity log (what the operator paused, edited, launched). no ai.
+3. **executive summary (ai call #1).** send the numbers to the llm → structured json back: what happened, what changed, risks, next actions.
+4. **tone profile (ai call #2).** send the operator's past writing samples → llm extracts their voice (sentence length, vocabulary, do they use emojis, do they mention "changes", etc.).
+5. **compose the client message (ai call #3).** llm rewrites the summary in the operator's voice, referencing the actual campaign changes.
+6. **two judges run in parallel:**
+   - **voice-judge (ai call #4):** llm compares the new message vs the writing samples → gives a match score, flags mismatches.
+   - **fact-judge (ai call #5):** llm compares the new message vs the source numbers → catches hallucinated claims.
+7. **deterministic fact-check.** pure code (no ai) scans for direction flips — e.g. if the campaign was paused but the message says "we're pushing it harder", that's a hard fail.
+8. **regenerate if needed (ai call #6, optional).** if either judge or the deterministic check complains, re-run compose with the critique attached.
+9. **ship it.** save to supabase, optionally post to slack.
+
+so the "agent" shape is: **directed pipeline with two quality judges and one conditional retry loop**. it's smart and rigorous — most llm apps do zero of the checking that metis does — but the *control flow* is fixed. the llm never chooses what step to run next; it just fills specific slots. this matters for the framework question below.
+
+### is this an "agent"?
+
+the industry currently splits llm apps into two shapes:
+- **workflow / pipeline** — fixed steps decided by the developer, llm fills slots. easy to test, cheap to run, predictable. **metis is this.**
+- **agent** — llm decides at each step what tool to call next, loops until "done". powerful but expensive, harder to reason about, prone to going off the rails.
+
+metis being a pipeline is not a weakness — for a reporting product where correctness matters and cost per run must be predictable, pipeline is the right shape. anthropic's own guidance (["building effective agents"](https://www.anthropic.com/research/building-effective-agents)) is: use workflows unless you can prove you need a full agent.
+
+### will langchain or langgraph make the product stand out?
+
+**short version: no on langchain, and only conditionally yes on langgraph. neither is a "stand out" feature to non-technical audiences — nobody buying a meta ads reporting tool cares what orchestration library is inside. what will actually make you stand out is the sophistication of the *ai product features*, not the framework. more on that below.**
+
+#### langchain — my recommendation: don't touch it
+
+langchain is being **actively removed from production codebases in 2026** by senior teams. the criticism has consolidated:
+- ~280 transitive dependencies pulled in on install
+- heavy abstractions that hide bugs — stack traces go through 8–15 wrapper layers
+- rapid api changes force rewrites
+- debugging often requires paying for their separate tracing product (langsmith)
+
+adopting langchain here would be a step backward. **skip.**
+
+#### langgraph — the more respected sibling. plausible fit, but only under specific conditions
+
+langgraph is a different beast: a **state-machine framework**. you declare nodes (steps) and edges (which node runs next, conditionally). it has real strengths that langchain lacks:
+- **checkpoints** — a run can pause, be saved, and resumed later
+- **human-in-the-loop** — you can pause the graph for a human to approve before continuing
+- **time-travel debugging** — replay any past run from any node
+- **used in production** at replit, uber, linkedin, gitlab
+
+but three concerns for **this** codebase:
+
+1. **the current pipeline isn't complex enough to earn langgraph.** it's a mostly-linear flow with one conditional loop. rewriting the working typescript in `reporting.ts` into a langgraph node/edge declaration would add complexity and gain almost nothing today.
+2. **langgraph.js is downstream of langgraph python** — new features arrive 4–8 weeks late. metis is typescript.
+3. **in the typescript world, mastra is now the more idiomatic choice** for this shape of workflow. even replit's flagship agent 3 switched off langgraph to mastra last cycle. if we ever adopt a framework, mastra is the safer bet.
+
+#### when langgraph *would* earn its place — the "capabilities that show sophistication" list
+
+these are the features that would **genuinely differentiate** metis to a technical or business audience — some of which the current pipeline can't cleanly support but langgraph (or mastra) makes easy:
+
+| capability | why it wows | needs a framework? |
+|---|---|---|
+| **evals dashboard** — track voice-judge + fact-judge scores across every run, show trend lines | proves you're not vibes-driven. rare in this category. | no — already have the data, needs a ui |
+| **human-in-the-loop approve** — for the highest-stakes reports, pause and slack a preview to the operator before sending to the client | huge trust unlock, huge sales talking point | **yes** — langgraph/mastra shine here |
+| **"agent mode"** — an autonomous version that decides which cuts to analyze (by campaign? by audience? by creative?) instead of a fixed template | this IS a genuine agent, and would be sold as such | **yes** — needs a real agent loop |
+| **cross-run memory** — "compared to last week, ctr dropped 8%" without the operator uploading history | operators love it; competitors don't have it | partly — langgraph has memory primitives, but a supabase table also works |
+| **live trace ui** for a run (like langsmith / langfuse but built-in) | screenshots of this are gold in demos | no — the `/admin/runs` view already exists; polish it |
+| **replay a past run with tweaked prompts** | powerful for support + prompt engineering | **yes** — langgraph's time-travel makes this near-free |
+
+### the honest CTO answer
+
+adopting a framework "to make the product stand out" is **backwards**. the framework is invisible to buyers. what stands out is the AI *product surface* — visible quality gates, human-approvable messages, cross-week memory, live traces. metis already has more of these than most competitors (the two judges + the deterministic direction check are unusually rigorous).
+
+**recommended order (my strong opinion):**
+
+1. **ship byok and meta oauth first.** these are the actual blockers to launch, they're visible ("we don't burn your credits, and connecting is one click"), and they remove hard "no"s from prospective users.
+2. **build an evals dashboard on the existing run data.** no framework. one week. it's the highest-leverage "look how serious we are" screenshot for demos.
+3. **add human-in-the-loop approval** as an opt-in per connection. **this is the point at which langgraph or mastra actually earns its keep** — because the pipeline needs to pause, wait for a webhook back from slack, and resume. writing durable resume logic by hand is where the current architecture starts to hurt.
+4. **only then** consider a "true agent mode" as a paid tier.
+
+so: langchain — no. langgraph/mastra — yes eventually, but as a **means to a specific capability** (human-in-the-loop, then agent mode), not as a badge. and when the day comes, **prefer mastra over langgraph** for a typescript codebase.
+
+---
+
 ## sources
 
 - [meta marketing api — authorization (access levels, dev mode)](https://developers.facebook.com/docs/marketing-api/get-started/authorization)
@@ -107,3 +198,9 @@ so early customers can be onboarded as testers while review is pending. per [met
 - [indie-dev business verification pain (github issue)](https://github.com/facebook/facebook-android-sdk/issues/1246)
 - [openrouter oauth pkce guide](https://openrouter.ai/docs/guides/overview/auth/oauth)
 - [openrouter code-for-key exchange endpoint](https://openrouter.ai/docs/api/api-reference/o-auth/exchange-auth-code-for-api-key)
+- [anthropic — building effective agents (workflow vs agent framing)](https://www.anthropic.com/research/building-effective-agents)
+- [langchain — best ai agent frameworks 2026](https://www.langchain.com/resources/ai-agent-frameworks)
+- [particula — mastra vs langgraph vs vercel ai sdk (typescript, 2026)](https://particula.tech/blog/mastra-vs-langgraph-vs-vercel-ai-sdk-typescript-agents)
+- [langchain criticism + alternatives 2026 (lindy)](https://www.lindy.ai/blog/langchain-alternatives)
+- [reactify — langgraph as state machines, not chatbots (2026)](https://www.reactify-solutions.com/articles/langgraph-production-agents-2026)
+- [dev.to — replit switch: langgraph → mastra typescript agents](https://dev.to/jim_l_efc70c3a738e9f4baa7/i-switched-from-langgraph-to-mastra-for-my-typescript-agents-18-hours-vs-41-nah)
