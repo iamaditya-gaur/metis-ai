@@ -1,12 +1,13 @@
 # Metis AI — current agent handoff
 
-**Last updated:** 2026-07-09 (Round 10 kickoff: BYOK + Meta OAuth research, new branch `feat/byok-and-meta-oauth`)
+**Last updated:** 2026-07-17 (Round 10 kickoff: BYOK + Meta OAuth research, new branch `feat/byok-and-meta-oauth`)
 
 > Read this file once. Don't pre-load the other docs — they're listed in the "If you need to dig deeper" table at the bottom; open them only when the task at hand actually calls for it.
 
 ## Where things stand
 
-- **Active branch:** `feat/byok-and-meta-oauth` — created 2026-07-09 off `origin/main` @ `ba10f6a`. Scope: per-user LLM API keys (BYOK) + Meta OAuth connect. Research done (see table below); no code yet.
+- **Active branch:** `feat/byok-and-meta-oauth` — created 2026-07-17 off `origin/main` @ `ba10f6a`. Scope: per-user LLM API keys (BYOK) + Meta OAuth connect. Research + full implementation plans done; no product code yet.
+- **Implementation plans (self-contained, execute task-by-task):** `docs/plans/2026-07-17-meta-oauth-connect.md` (first) and `docs/plans/2026-07-17-byok-llm-keys.md` (independent — a separate agent can run it cold; it repeats all constraints).
 - **⚠️ Local `main` on this machine is stale and divergent** — it points at an old POC-backup lineage ("Save stable POC backup…"), NOT the real product. Always branch from `origin/main`, never local `main`. (Fixing local main needs a reset — ask the user first.)
 - **`origin/main` gained two commits after Round 9:** `b3c6be4` (README update) and `ba10f6a` (landing page CRO rewrite with motion system, PR #7).
 - **Branch (historical):** `feat/foundation-and-shell` — fully merged into `main` (fast-forward) on 2026-06-22.

@@ -1,6 +1,6 @@
 # research: byok llm keys + meta oauth connect + agent architecture / langchain
 
-**date:** 2026-07-09 · **branch:** `feat/byok-and-meta-oauth` (off `origin/main` @ `ba10f6a`) · **status:** research only, no code changed
+**date:** 2026-07-17 · **branch:** `feat/byok-and-meta-oauth` (off `origin/main` @ `ba10f6a`) · **status:** research only, no code changed
 
 three PM questions answered:
 1. per-user llm keys (byok) — see below
