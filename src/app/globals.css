@@ -2648,6 +2648,17 @@ input {
   font-weight: 600;
 }
 
+.llm-key-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.9rem;
+}
+
+.llm-key-card > .auth-form {
+  width: 100%;
+}
+
 /* ---------------------------------------------------------------------------
    /reporting demo sign-up nudge (post-generation conversion card)
    --------------------------------------------------------------------------- */

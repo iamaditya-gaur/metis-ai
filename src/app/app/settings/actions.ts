@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { deleteLlmKey, saveLlmKey } from "@/lib/llm-keys/store";
 import type { AuthFormState } from "@/app/(auth)/actions";
 
 export async function updateProfileAction(
@@ -64,4 +66,37 @@ export async function updatePasswordAction(
     return { status: "error", message: error.message };
   }
   return { status: "success", message: "Password updated." };
+}
+
+export type LlmKeyFormResult = { status: "idle" } | { status: "error"; message: string };
+
+export async function saveOpenAiKeyAction(
+  _prev: LlmKeyFormResult,
+  formData: FormData,
+): Promise<LlmKeyFormResult> {
+  const raw = formData.get("apiKey");
+  const apiKey = typeof raw === "string" ? raw.trim() : "";
+  if (!apiKey || apiKey.length > 300) {
+    return { status: "error", message: "Paste a valid OpenAI API key." };
+  }
+  try {
+    await saveLlmKey("openai", apiKey);
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Couldn't save the key.",
+    };
+  }
+  revalidatePath("/app/settings");
+  redirect("/app/settings?llm_saved=1");
+}
+
+export async function deleteLlmKeyAction(): Promise<void> {
+  try {
+    await deleteLlmKey();
+  } catch (error) {
+    console.error("delete llm key failed", error);
+  }
+  revalidatePath("/app/settings");
+  revalidatePath("/app/reports");
 }
