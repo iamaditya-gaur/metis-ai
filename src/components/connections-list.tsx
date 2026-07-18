@@ -11,6 +11,26 @@ type Props = {
   deleteAction: (formData: FormData) => Promise<void>;
 };
 
+function daysUntil(iso: string | null): number | null {
+  if (!iso) return null;
+  const ts = new Date(iso);
+  if (Number.isNaN(ts.getTime())) return null;
+  return Math.floor((ts.getTime() - Date.now()) / 86_400_000);
+}
+
+function isExpiringSoon(iso: string | null): boolean {
+  const d = daysUntil(iso);
+  return d !== null && d <= 7;
+}
+
+function expiryPill(iso: string | null): { label: string; tone: "info" | "warning" } {
+  const d = daysUntil(iso);
+  if (d === null) return { label: "Connected via Meta", tone: "info" };
+  if (d < 0) return { label: "Meta link expired", tone: "warning" };
+  if (d <= 7) return { label: `Meta link expires in ${d}d`, tone: "warning" };
+  return { label: "Connected via Meta", tone: "info" };
+}
+
 function formatSyncedAt(value: string | null): string {
   if (!value) return "Never synced";
   const ts = new Date(value);
@@ -49,11 +69,22 @@ export function ConnectionsList({ rows, deleteAction }: Props) {
                 label={`${row.account_count ?? 0} account${row.account_count === 1 ? "" : "s"}`}
                 tone="info"
               />
+              {row.auth_method === "oauth" ? (
+                <StatusPill
+                  label={expiryPill(row.token_expires_at).label}
+                  tone={expiryPill(row.token_expires_at).tone}
+                />
+              ) : null}
             </div>
             <p className="connections-row-meta">
               Last verified {formatSyncedAt(row.last_synced_at)}
             </p>
           </div>
+          {row.auth_method === "oauth" && isExpiringSoon(row.token_expires_at) ? (
+            <a className="product-button" data-variant="secondary" href="/api/meta/oauth/start">
+              Reconnect
+            </a>
+          ) : null}
           <DeleteButton id={row.id} action={deleteAction} />
         </li>
       ))}

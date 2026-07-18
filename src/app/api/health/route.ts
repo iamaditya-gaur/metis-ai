@@ -23,7 +23,15 @@ const REQUIRED_VARS = [
   "METIS_ADMIN_COOKIE_SECRET",
   // Origin for auth redirects
   "NEXT_PUBLIC_SITE_URL",
+  // Meta OAuth connect flow
+  "META_APP_ID",
+  "META_APP_SECRET",
+  "META_OAUTH_REDIRECT_URI",
 ] as const;
+
+// Present-or-not reported, but never fails the probe: the OAuth flow has a
+// scope fallback when no Facebook Login for Business configuration exists.
+const OPTIONAL_VARS = ["META_LOGIN_CONFIG_ID"] as const;
 
 function isPresent(name: string): boolean {
   const raw = process.env[name];
@@ -36,10 +44,15 @@ export async function GET() {
     env[name] = isPresent(name);
   }
   const allPresent = Object.values(env).every(Boolean);
+  const optional: Record<string, boolean> = {};
+  for (const name of OPTIONAL_VARS) {
+    optional[name] = isPresent(name);
+  }
   return NextResponse.json(
     {
       ok: allPresent,
       env,
+      optional,
       vercel: {
         env: process.env.VERCEL_ENV ?? null,
         url: process.env.VERCEL_URL ?? null,

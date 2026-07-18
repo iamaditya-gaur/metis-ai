@@ -5,6 +5,7 @@ import { useState } from "react";
 import { AddConnectionForm } from "@/components/add-connection-form";
 import { ConnectionsList } from "@/components/connections-list";
 import { GlassPanel } from "@/components/glass-panel";
+import { MetaConnectButton } from "@/components/meta-connect-button";
 
 import type { ConnectionRow } from "@/app/app/connections/page";
 
@@ -13,6 +14,7 @@ type Props = {
   deleteAction: (formData: FormData) => Promise<void>;
   startFormOpen: boolean;
   firstRun: boolean;
+  oauthError: string | null;
 };
 
 export function ConnectionsManager({
@@ -20,11 +22,19 @@ export function ConnectionsManager({
   deleteAction,
   startFormOpen,
   firstRun,
+  oauthError,
 }: Props) {
   const [isFormOpen, setIsFormOpen] = useState(startFormOpen);
+  const [manualOpen, setManualOpen] = useState(false);
 
   return (
     <div className="connections-surface">
+      {oauthError ? (
+        <p className="auth-feedback auth-feedback-error" role="alert">
+          {oauthError}
+        </p>
+      ) : null}
+
       {rows.length > 0 ? (
         <GlassPanel
           eyebrow="Saved connections"
@@ -56,12 +66,12 @@ export function ConnectionsManager({
           title={
             firstRun
               ? "Connect your first Meta account"
-              : "Paste a Meta access token"
+              : "Connect a Meta account"
           }
           description={
             firstRun
-              ? "Takes about 30 seconds. Metis verifies the token, saves it encrypted, and takes you straight to your first report."
-              : "Useful for agency setups with multiple clients. Metis verifies the token before saving."
+              ? "One click with your Facebook login. Metis only asks for read-only ads access, verifies it, and takes you straight to your first report."
+              : "Useful for agency setups with multiple clients. Metis verifies access before saving."
           }
           actions={
             rows.length > 0 ? (
@@ -69,14 +79,38 @@ export function ConnectionsManager({
                 type="button"
                 className="product-button"
                 data-variant="secondary"
-                onClick={() => setIsFormOpen(false)}
+                onClick={() => {
+                  setIsFormOpen(false);
+                  setManualOpen(false);
+                }}
               >
                 Cancel
               </button>
             ) : null
           }
         >
-          <AddConnectionForm />
+          <div className="stack-md">
+            <div>
+              <MetaConnectButton />
+              <p className="product-help">
+                Recommended: you approve read-only access on Meta&apos;s own
+                screen. No tokens to copy, nothing to expire by hand.
+              </p>
+            </div>
+
+            {manualOpen ? (
+              <AddConnectionForm />
+            ) : (
+              <button
+                type="button"
+                className="product-button"
+                data-variant="secondary"
+                onClick={() => setManualOpen(true)}
+              >
+                Prefer to paste a token manually?
+              </button>
+            )}
+          </div>
         </GlassPanel>
       ) : null}
     </div>
