@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 
+import { getLlmCallConfig } from "./llm-context.mjs";
 import { maskAdAccountId, maskName } from "./mask.mjs";
 
 function round(value, decimals = 2) {
@@ -325,21 +326,27 @@ function validateGeneratedReport(value) {
 }
 
 export async function generateOpenRouterReportSummary(promptInput) {
-  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
+  const llmConfig = getLlmCallConfig();
+  const apiKey = llmConfig.apiKey;
 
   if (!apiKey) {
-    throw new Error("Missing OPENROUTER_API_KEY.");
+    throw new Error(
+      llmConfig.isUserKey
+        ? "Your connected AI key could not be read. Reconnect it in Settings."
+        : "Missing OPENROUTER_API_KEY.",
+    );
   }
 
-  const model = process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-5.4-mini";
+  const model = llmConfig.mapModel(
+    process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-5.4-mini",
+  );
   const startedAt = performance.now();
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const response = await fetch(llmConfig.endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
-      "HTTP-Referer": "https://metis-ai-nine.vercel.app",
-      "X-OpenRouter-Title": "Metis AI",
+      ...llmConfig.extraHeaders,
     },
     body: JSON.stringify({
       model,
@@ -369,7 +376,9 @@ export async function generateOpenRouterReportSummary(promptInput) {
     // the UI can show the operator what to do next.
     if (response.status === 401) {
       const err = new Error(
-        "OpenRouter API key is invalid, expired, or revoked. Update OPENROUTER_API_KEY in Vercel (Project Settings → Environment Variables) for both Preview and Production, then redeploy.",
+        llmConfig.isUserKey
+          ? "Your connected AI key was rejected (invalid, revoked, or out of credits). Reconnect or replace it in Settings → AI key."
+          : "OpenRouter API key is invalid, expired, or revoked. Update OPENROUTER_API_KEY in Vercel (Project Settings → Environment Variables) for both Preview and Production, then redeploy.",
       );
       err.code = "OPENROUTER_AUTH_FAILED";
       err.httpStatus = 401;
