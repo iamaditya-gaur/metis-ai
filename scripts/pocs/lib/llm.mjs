@@ -154,7 +154,15 @@ export async function requestOpenRouterJson({
       // model won't help. Throw immediately with a clear, user-facing message
       // so the run surfaces "update your OpenRouter key" instead of a raw
       // JSON dump from the upstream API.
-      if (response.status === 401) {
+      // 402 (out of credits) and 403 (forbidden) are also terminal key/account
+      // problems that another model can't fix — but only surface them as
+      // "reconnect your key" for a per-request user key (BYOK). On the env
+      // fallback path (isUserKey === false) behavior stays byte-identical:
+      // only 401 short-circuits, exactly as before.
+      if (
+        response.status === 401 ||
+        (llmConfig.isUserKey && (response.status === 402 || response.status === 403))
+      ) {
         const err = new Error(
           llmConfig.isUserKey
             ? "Your connected AI key was rejected (invalid, revoked, or out of credits). Reconnect or replace it in Settings → AI key."
@@ -162,7 +170,8 @@ export async function requestOpenRouterJson({
         );
         /** @type {Error & { code?: string; httpStatus?: number }} */ (err).code =
           "OPENROUTER_AUTH_FAILED";
-        /** @type {Error & { code?: string; httpStatus?: number }} */ (err).httpStatus = 401;
+        /** @type {Error & { code?: string; httpStatus?: number }} */ (err).httpStatus =
+          response.status;
         throw err;
       }
       lastError = new Error(

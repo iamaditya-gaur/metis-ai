@@ -374,14 +374,21 @@ export async function generateOpenRouterReportSummary(promptInput) {
     // 401 = invalid / expired / revoked API key, or suspended account.
     // Surface a clean, actionable message instead of a raw payload dump so
     // the UI can show the operator what to do next.
-    if (response.status === 401) {
+    // 402 (out of credits) and 403 (forbidden) are also terminal key/account
+    // problems — surface them as "reconnect your key" for a per-request user
+    // key (BYOK). On the env fallback path (isUserKey === false) only 401
+    // short-circuits, byte-identical to the original behavior.
+    if (
+      response.status === 401 ||
+      (llmConfig.isUserKey && (response.status === 402 || response.status === 403))
+    ) {
       const err = new Error(
         llmConfig.isUserKey
           ? "Your connected AI key was rejected (invalid, revoked, or out of credits). Reconnect or replace it in Settings → AI key."
           : "OpenRouter API key is invalid, expired, or revoked. Update OPENROUTER_API_KEY in Vercel (Project Settings → Environment Variables) for both Preview and Production, then redeploy.",
       );
       err.code = "OPENROUTER_AUTH_FAILED";
-      err.httpStatus = 401;
+      err.httpStatus = response.status;
       throw err;
     }
     throw new Error(
