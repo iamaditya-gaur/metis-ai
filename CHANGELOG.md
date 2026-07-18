@@ -7,6 +7,49 @@ deployed continuously. Each entry is dated and tagged with its PR.
 
 ---
 
+## 2026-07-18 — Bring your own AI key (BYOK)
+
+**Branch:** `claude/byok-llm-keys-4407f4`.
+
+### What shipped
+
+- **Per-user AI keys.** Signed-in users connect their own LLM key from
+  Settings → *AI key*: **OpenRouter** via one-click OAuth (PKCE, no app
+  registration — the callback derives from the request origin), or
+  **OpenAI** / OpenRouter via manual paste behind a provider dropdown. Keys
+  are validated against the provider (`GET /api/v1/key` or `/v1/models`)
+  before they're saved.
+- **Own key required for authed runs.** `POST /api/metis/reporting` resolves
+  the signed-in user's key and, if none is set, returns a friendly `402
+  LLM_KEY_REQUIRED` with a CTA — no silent fallback to the shared app key.
+  `/app/reports` shows a connect-your-key banner until one is set. The
+  anonymous `/reporting` demo keeps using the app's env key.
+- **Encrypted at rest, RLS-scoped.** New `llm_keys` table (migration `0010`,
+  one row per user) stores AES-256-GCM ciphertext + IV + auth tag + last-4
+  only — plaintext is never persisted, logged, or returned. Reuses
+  `src/lib/crypto/token-encryption.ts`; RLS scopes every row to `auth.uid()`.
+  Rollback SQL shipped alongside.
+- **Per-request key isolation.** The engine's two LLM entry points
+  (`scripts/pocs/lib/llm.mjs`, `reporting.mjs`) read a per-request context via
+  `AsyncLocalStorage` (`llm-context.mjs`) — never `process.env` mutation — so
+  concurrent users' keys can't cross. When no context is set the env-var path
+  is byte-for-byte identical, so the reporting brain (`src/lib/metis/*`) needed
+  zero changes. Routes stay on the Node runtime.
+- **Provider mapping + credit-aware errors.** OpenRouter and OpenAI share the
+  OpenAI-compatible chat API; model ids are mapped per provider (`openai/…` →
+  bare id for direct OpenAI). Rejected / revoked / out-of-credits keys
+  (401/402/403 on a user key) surface a "reconnect or replace in Settings"
+  message instead of a raw upstream dump. Users can replace a key in place
+  without removing it first.
+- **Tests + tooling.** Added Vitest for pure-helper unit tests
+  (`llm-context`, `pkce`). `npm test`, `npm run build`, `npm run lint` green;
+  Supabase security advisors clean for the new table.
+
+**Note:** the legacy builder surfaces (`src/app/api/metis/builder/*`) stay on
+the env key for now — BYOK covers the reporting path.
+
+---
+
 ## 2026-06-22 — Production landing, history polish, picker refinements
 
 **Branch:** `feat/foundation-and-shell` — fast-forwarded into `main`.

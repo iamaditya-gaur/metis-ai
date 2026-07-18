@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { AppShell } from "@/components/app-shell";
 import { GlassPanel } from "@/components/glass-panel";
 import { AuthedReportingStudio } from "@/components/authed-reporting-studio";
+import { getLlmKeySummary } from "@/lib/llm-keys/store";
 import { createClient } from "@/lib/supabase/server";
 
 export type ReportConnection = {
@@ -21,6 +22,7 @@ export default async function ReportsPage() {
     .order("created_at", { ascending: false });
 
   const connections: ReportConnection[] = data ?? [];
+  const llmKeySummary = await getLlmKeySummary();
 
   return (
     <AppShell
@@ -28,6 +30,19 @@ export default async function ReportsPage() {
       title="Generate a Meta ads summary"
       description="Pick a connection, set the window, drop in past client messages — Metis returns the factual read plus a send-ready client update."
     >
+      {!llmKeySummary ? (
+        <div className="llm-key-banner">
+          <p>
+            <strong>One thing before your first report:</strong> connect your AI
+            key. Reports run on your own OpenRouter or OpenAI account — we never
+            bill your usage to a shared key.
+          </p>
+          <a className="product-button" href="/app/settings">
+            Connect AI key
+          </a>
+        </div>
+      ) : null}
+
       {connections.length === 0 ? (
         <GlassPanel
           eyebrow="Get started in two steps"

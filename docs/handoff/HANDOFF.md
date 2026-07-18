@@ -1,6 +1,6 @@
 # Metis AI — current agent handoff
 
-**Last updated:** 2026-06-22 (after Round 9 wrap-up: production landing, history polish, code-cleanup pass)
+**Last updated:** 2026-07-18 (BYOK / bring-your-own-AI-key — built on branch `claude/byok-llm-keys-4407f4`, verified on preview, pending merge)
 
 > Read this file once. Don't pre-load the other docs — they're listed in the "If you need to dig deeper" table at the bottom; open them only when the task at hand actually calls for it.
 
@@ -10,6 +10,14 @@
 - **Production URL:** https://metis-ai-nine.vercel.app — live on the latest build.
 - **Repo + project:** GitHub `iamaditya-gaur/metis-ai`, single Vercel project, single linked Supabase project.
 - **Auth gate:** `/app/*` requires a Supabase session. `/admin/*` requires the admin password cookie. `/`, `/reporting`, `/login`, `/signup`, `/reset-password` are public.
+
+## BYOK — bring your own AI key (2026-07-18, branch `claude/byok-llm-keys-4407f4`, not yet merged)
+
+- **What it is:** signed-in users connect their own AI key (OpenRouter one-click OAuth or OpenAI/OpenRouter paste) in Settings → *AI key*; authed report runs use *their* key. New RLS-scoped `llm_keys` table (migration `0010`, one row per user, AES-256-GCM via `token-encryption.ts`, last-4 display only).
+- **The seam:** every LLM call funnels through two `.mjs` functions (`requestOpenRouterJson` in `llm.mjs`, `generateOpenRouterReportSummary` in `reporting.mjs`). They now read a per-request `AsyncLocalStorage` context (`scripts/pocs/lib/llm-context.mjs`); the API route wraps `runReportingWorkflow` in `runWithLlmKey(...)`. **No context set → byte-identical env-var fallback**, so `src/lib/metis/*` was untouched and the anonymous `/reporting` demo is unchanged. Keep touched routes on the Node runtime (ALS needs it — no `export const runtime = "edge"`).
+- **Policy:** own key **required** for authed runs — no key → `402 LLM_KEY_REQUIRED` + CTA banner on `/app/reports`, no silent fallback. Anonymous demo keeps the env key.
+- **Decisions still open for the owner:** (1) a *signed-in* user on the public `/reporting` demo is currently also asked for their own key (gate is on `payload.userId`); scope to `/app/reports` only if undesired. (2) OpenAI `429 insufficient_quota` isn't specially messaged (429 is also plain rate-limiting).
+- **Left on the env key by decision:** the legacy builder surfaces (`src/app/api/metis/builder/*`).
 
 ## What just shipped on this branch (rounds 5 → 9, after Round 4)
 

@@ -1,5 +1,6 @@
 import { performance } from "node:perf_hooks";
 
+import { getLlmCallConfig } from "./llm-context.mjs";
 import { readRateLimitMs, waitForRateLimit } from "./rate-limit.mjs";
 
 /**
@@ -68,10 +69,15 @@ export async function requestOpenRouterJson({
 
   const resolvedUserContent =
     typeof userMessage === "string" ? userMessage : JSON.stringify(userPayload);
-  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
+  const llmConfig = getLlmCallConfig();
+  const apiKey = llmConfig.apiKey;
 
   if (!apiKey) {
-    throw new Error("Missing OPENROUTER_API_KEY.");
+    throw new Error(
+      llmConfig.isUserKey
+        ? "Your connected AI key could not be read. Reconnect it in Settings."
+        : "Missing OPENROUTER_API_KEY.",
+    );
   }
 
   await waitForRateLimit(
@@ -96,16 +102,16 @@ export async function requestOpenRouterJson({
     let payload;
 
     try {
-      response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const wireModel = llmConfig.mapModel(candidateModel);
+      response = await fetch(llmConfig.endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
-          "HTTP-Referer": "https://metis-ai-nine.vercel.app",
-          "X-OpenRouter-Title": "Metis AI",
+          ...llmConfig.extraHeaders,
         },
         body: JSON.stringify({
-          model: candidateModel,
+          model: wireModel,
           ...(typeof temperature === "number" ? { temperature } : {}),
           response_format: { type: "json_object" },
           messages: [
@@ -148,13 +154,24 @@ export async function requestOpenRouterJson({
       // model won't help. Throw immediately with a clear, user-facing message
       // so the run surfaces "update your OpenRouter key" instead of a raw
       // JSON dump from the upstream API.
-      if (response.status === 401) {
+      // 402 (out of credits) and 403 (forbidden) are also terminal key/account
+      // problems that another model can't fix — but only surface them as
+      // "reconnect your key" for a per-request user key (BYOK). On the env
+      // fallback path (isUserKey === false) behavior stays byte-identical:
+      // only 401 short-circuits, exactly as before.
+      if (
+        response.status === 401 ||
+        (llmConfig.isUserKey && (response.status === 402 || response.status === 403))
+      ) {
         const err = new Error(
-          "OpenRouter API key is invalid, expired, or revoked. Update OPENROUTER_API_KEY in Vercel (Project Settings → Environment Variables) for both Preview and Production, then redeploy.",
+          llmConfig.isUserKey
+            ? "Your connected AI key was rejected (invalid, revoked, or out of credits). Reconnect or replace it in Settings → AI key."
+            : "OpenRouter API key is invalid, expired, or revoked. Update OPENROUTER_API_KEY in Vercel (Project Settings → Environment Variables) for both Preview and Production, then redeploy.",
         );
         /** @type {Error & { code?: string; httpStatus?: number }} */ (err).code =
           "OPENROUTER_AUTH_FAILED";
-        /** @type {Error & { code?: string; httpStatus?: number }} */ (err).httpStatus = 401;
+        /** @type {Error & { code?: string; httpStatus?: number }} */ (err).httpStatus =
+          response.status;
         throw err;
       }
       lastError = new Error(

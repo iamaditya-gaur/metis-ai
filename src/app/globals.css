@@ -2648,6 +2648,122 @@ input {
   font-weight: 600;
 }
 
+.llm-key-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.9rem;
+}
+
+.llm-key-status {
+  margin: 0;
+  color: var(--product-ink);
+  font-size: 0.95rem;
+}
+
+.llm-key-last4 {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.5rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--product-line);
+  background: rgb(255 255 255 / 0.5);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.82em;
+  letter-spacing: 0.02em;
+  color: var(--product-ink);
+}
+
+.llm-key-verified {
+  color: var(--product-ink-soft);
+  font-size: 0.9em;
+}
+
+.llm-key-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.llm-key-connect,
+.llm-key-replace {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.9rem;
+  width: 100%;
+}
+
+.llm-key-replace {
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--product-line);
+}
+
+/* Smooth expand/collapse via animatable grid rows (0fr → 1fr) so the panel
+   grows to its natural height with no magic max-height number. */
+.llm-key-replace-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  width: 100%;
+  transition: grid-template-rows 280ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.llm-key-replace-wrap[data-open="true"] {
+  grid-template-rows: 1fr;
+}
+
+.llm-key-replace-inner {
+  overflow: hidden;
+  min-height: 0;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity 200ms ease,
+    transform 240ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.llm-key-replace-wrap[data-open="true"] .llm-key-replace-inner {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .llm-key-replace-wrap,
+  .llm-key-replace-inner {
+    transition: none;
+  }
+}
+
+.llm-key-connect .auth-form {
+  width: 100%;
+}
+
+.llm-key-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.2rem;
+  border-radius: 1rem;
+  border: 1px solid var(--product-line-strong);
+  background:
+    linear-gradient(135deg, rgb(255 246 235 / 0.95), rgb(239 227 205 / 0.96)),
+    var(--panel);
+}
+
+.llm-key-banner p {
+  margin: 0;
+  flex: 1 1 20rem;
+  color: var(--product-ink-soft);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.llm-key-banner .product-button {
+  flex: 0 0 auto;
+}
+
 /* ---------------------------------------------------------------------------
    /reporting demo sign-up nudge (post-generation conversion card)
    --------------------------------------------------------------------------- */
