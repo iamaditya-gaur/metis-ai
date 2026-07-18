@@ -30,6 +30,11 @@ export function FinalCta() {
           No card required. You can connect a Meta account whenever you&apos;re
           ready.
         </p>
+
+        <p className="footer-note">
+          <Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link> ·{" "}
+          <Link href="/data-deletion">Data deletion</Link>
+        </p>
       </Reveal>
     </section>
   );
