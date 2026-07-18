@@ -4,6 +4,8 @@ import { runReportingWorkflow } from "@/lib/metis/reporting";
 import type { ReportingRunRequest } from "@/lib/metis/types";
 import { createClient } from "@/lib/supabase/server";
 import { decryptSecretFromBase64 } from "@/lib/crypto/token-encryption";
+import { resolveLlmKeyForRun } from "@/lib/llm-keys/store";
+import { runWithLlmKey } from "../../../../../scripts/pocs/lib/llm-context.mjs";
 
 type Body = ReportingRunRequest & { connectionId?: string };
 
@@ -55,8 +57,27 @@ export async function POST(request: Request) {
     }
   }
 
+  // BYOK policy (user decision, 2026-07-17): signed-in runs must use the
+  // user's own AI key. The anonymous /reporting demo keeps the env key.
+  let llmKey: Awaited<ReturnType<typeof resolveLlmKeyForRun>> = null;
+  if (payload.userId) {
+    llmKey = await resolveLlmKeyForRun();
+    if (!llmKey) {
+      return NextResponse.json(
+        {
+          code: "LLM_KEY_REQUIRED",
+          message:
+            "Connect your AI key in Settings before generating reports. Reports run on your own OpenRouter or OpenAI account.",
+        },
+        { status: 402 },
+      );
+    }
+  }
+
   try {
-    const result = await runReportingWorkflow(payload);
+    const result = llmKey
+      ? await runWithLlmKey(llmKey, () => runReportingWorkflow(payload))
+      : await runReportingWorkflow(payload);
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(

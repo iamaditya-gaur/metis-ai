@@ -2659,6 +2659,32 @@ input {
   width: 100%;
 }
 
+.llm-key-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.2rem;
+  border-radius: 1rem;
+  border: 1px solid var(--product-line-strong);
+  background:
+    linear-gradient(135deg, rgb(255 246 235 / 0.95), rgb(239 227 205 / 0.96)),
+    var(--panel);
+}
+
+.llm-key-banner p {
+  margin: 0;
+  flex: 1 1 20rem;
+  color: var(--product-ink-soft);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.llm-key-banner .product-button {
+  flex: 0 0 auto;
+}
+
 /* ---------------------------------------------------------------------------
    /reporting demo sign-up nudge (post-generation conversion card)
    --------------------------------------------------------------------------- */
