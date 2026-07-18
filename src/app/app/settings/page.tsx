@@ -48,7 +48,7 @@ export default async function SettingsPage({
       <GlassPanel
         eyebrow="AI key"
         title="Bring your own AI key"
-        description="Reports run on your own OpenRouter or OpenAI account. Connect once — your key is encrypted at rest and only its last four characters are ever shown."
+        description="Reports run on your own OpenRouter or OpenAI account. Your key is encrypted on our servers with AES-256-GCM — strong, authenticated encryption — with only its last four characters ever shown. We never log it or share it with anyone but your AI provider."
       >
         <LlmKeyCard summary={llmKeySummary} savedFlash={savedFlash} errorFlash={errorFlash} />
       </GlassPanel>

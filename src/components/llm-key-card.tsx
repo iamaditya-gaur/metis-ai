@@ -118,15 +118,17 @@ export function LlmKeyCard({ summary, savedFlash, errorFlash }: Props) {
             </button>
           </form>
         </div>
-        {showReplace ? (
-          <div className="llm-key-replace">
-            <p className="product-help">
-              Connect a different account or paste a new key — it replaces the current one. Use this
-              if your key stopped working.
-            </p>
-            <ConnectOptions />
+        <div className="llm-key-replace-wrap" data-open={showReplace}>
+          <div className="llm-key-replace-inner" inert={!showReplace}>
+            <div className="llm-key-replace">
+              <p className="product-help">
+                Connect a different account or paste a new key — it replaces the current one. Use
+                this if your key stopped working.
+              </p>
+              <ConnectOptions />
+            </div>
           </div>
-        ) : null}
+        </div>
       </div>
     );
   }

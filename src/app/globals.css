@@ -2699,6 +2699,41 @@ input {
   border-top: 1px solid var(--product-line);
 }
 
+/* Smooth expand/collapse via animatable grid rows (0fr → 1fr) so the panel
+   grows to its natural height with no magic max-height number. */
+.llm-key-replace-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  width: 100%;
+  transition: grid-template-rows 280ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.llm-key-replace-wrap[data-open="true"] {
+  grid-template-rows: 1fr;
+}
+
+.llm-key-replace-inner {
+  overflow: hidden;
+  min-height: 0;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity 200ms ease,
+    transform 240ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.llm-key-replace-wrap[data-open="true"] .llm-key-replace-inner {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .llm-key-replace-wrap,
+  .llm-key-replace-inner {
+    transition: none;
+  }
+}
+
 .llm-key-connect .auth-form {
   width: 100%;
 }
