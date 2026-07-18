@@ -14,6 +14,12 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 const GRAPH_BASE = "https://graph.facebook.com";
 const DIALOG_BASE = "https://www.facebook.com";
 
+/**
+ * CSRF state cookie shared by the start + callback routes. Lives here (not
+ * in a route file) because Next.js route modules may only export handlers.
+ */
+export const META_OAUTH_STATE_COOKIE = "metis.meta_oauth_state";
+
 export function getMetaOAuthEnv() {
   const appId = process.env.META_APP_ID?.trim();
   const appSecret = process.env.META_APP_SECRET?.trim();
