@@ -21,25 +21,54 @@ live in production.
    developer". accept, verify with the code it sends, choose any role
    (e.g. "developer").
 
-## 2. create the app (~10 min)
+## 2. use your existing app (recommended) — or create one
+
+**you almost certainly do NOT need a new app.** the access token this project
+uses today was generated from your existing **"Marketing API"** app. that same
+app can host the OAuth login — you just add one product to it (section 3) and
+create a configuration (section 4). reusing it is actually *better*: its past
+Marketing API calls count toward the "≥500 calls in 15 days" bar Meta uses to
+grant the full access tier (see section 9.6), so you're ahead on day one.
+
+### 2A. reuse the existing "Marketing API" app (do this)
+
+1. go to https://developers.facebook.com → top-right **My Apps** → click your
+   **Marketing API** app to open its dashboard.
+2. **find the App ID:** left sidebar → **App settings** → **Basic**. the
+   **App ID** and **App secret** are both on that page. (this is the same App
+   ID that generated your current access token.) you'll paste both into Vercel
+   in section 6 — do NOT paste them into chat.
+3. **confirm it can do OAuth login:** in the left sidebar's "Add product" area,
+   check that **Facebook Login for Business** appears as an available product.
+   - if it does → great, go to section 3.
+   - if you only see plain **Facebook Login** (not "for Business"), or neither
+     → your app was created as a non-business type. it can still work with
+     plain Facebook Login, but the cleanest path is to create a fresh Business
+     app (2B) and keep the old one only for the legacy token. tell me which
+     case you're in and I'll adjust.
+4. skip to **section 3**.
+
+### 2B. only if 2A won't work — create a new app (~10 min)
 
 1. from https://developers.facebook.com → top-right **My Apps** → **Create App**.
-2. it asks what your app does / use case. choose **Other** (or the closest to
-   "manage business integrations" — Meta renames these options often; the key
-   thing is the NEXT screen).
-3. **app type: choose "Business".** this is the important choice — the ads
-   permissions only exist on business-type apps.
+2. use case: choose **Other** (Meta renames these often; the app *type* on the
+   next screen is what matters).
+3. **app type: choose "Business".** the ads permissions only exist on
+   business-type apps.
 4. app name: `Metis AI`. contact email: your real email. business portfolio:
    leave empty for now if it asks (section 8 connects it).
-5. click create. you land on the app dashboard. **copy the App ID shown at
-   the top — you'll need it in section 6.**
+5. click create → land on the dashboard → **App settings → Basic** has your
+   App ID and App secret for section 6.
+
+> whichever path: the App ID + App secret you use below must be from the SAME
+> app whose Facebook Login for Business product you configure in sections 3–4.
+> don't mix one app's ID with another's secret.
 
 ## 3. add "facebook login for business" to the app (~5 min)
 
 1. on the app dashboard, find the product list ("Add products to your app").
 2. locate **Facebook Login for Business** → click **Set up**.
-   (if you only see "Facebook Login", your app is not Business type — go back
-   and re-check step 2.3.)
+   (if you only see plain "Facebook Login", see the note in section 2A.3.)
 3. in the left sidebar there is now a **Facebook Login for Business** section.
    open its **Settings** page and set:
    - **Client OAuth login:** ON
@@ -88,8 +117,8 @@ left sidebar → **App settings** → **Basic**:
 
 | name | value |
 |---|---|
-| `META_APP_ID` | the App ID from section 2.5 |
-| `META_APP_SECRET` | the App secret from section 5 (click Show, copy) |
+| `META_APP_ID` | the App ID from section 2A.2 (or 2B.5) |
+| `META_APP_SECRET` | the App secret from the same App settings → Basic page (click Show, copy) |
 | `META_OAUTH_REDIRECT_URI` | `https://metis-ai-nine.vercel.app/api/meta/oauth/callback` |
 | `META_LOGIN_CONFIG_ID` | the Configuration ID from section 4.3 |
 
