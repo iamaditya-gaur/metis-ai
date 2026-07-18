@@ -195,6 +195,56 @@ privacy/terms/data-deletion pages live. then:
    for the Marketing API wants to see ≥500 API calls in a rolling 15 days
    with a low error rate, and your own dev-mode usage counts.
 
+## how we roll this out safely (branch → preview → main), and the cleanup plan
+
+you asked: test everything off-production first, keep it clean, and be able
+to fall back to the current access-token setup if anything breaks. here's
+exactly how that works. **you don't drive this section — I (the agent) do.
+it's here so you can see the plan.**
+
+### the stages
+
+1. **now — separate branch, nothing live.** all the code sits on the
+   `feat/byok-and-meta-oauth` branch. your live site (`main`) is untouched.
+2. **the one database step.** the OAuth feature needs 4 new columns on the
+   `meta_connections` table. this is additive only — it never changes or
+   deletes anything that exists, and your live site's current code doesn't
+   even read these columns, so production keeps behaving identically. it does
+   have to run against the shared database (preview and production share one
+   today). the SQL is in `supabase/0009_meta_connections_oauth.sql`.
+3. **preview testing.** I deploy this branch as a Vercel *preview* — a
+   separate web address from your live site — and we click-test the whole
+   Connect-with-Meta flow there. your live site is never involved.
+4. **you're satisfied → merge to main.** only then does OAuth reach the live
+   site. the old paste-a-token flow stays in place as a fallback the whole
+   time, so nothing you have today is removed.
+
+### what "keep it clean, no mess" means (important nuance)
+
+there are two different things in the database, and only one gets deleted:
+
+- **the 4 columns = the feature. these STAY.** they aren't test scaffolding —
+  they're what OAuth needs to work in production. removing them would remove
+  the feature.
+- **test connections = throwaway. these GET DELETED.** every time we click
+  "Connect with Meta" during preview testing, a real (encrypted) row is
+  created in the shared database. before we go live, I delete every one of
+  those test rows so production starts with a clean table — no leftover test
+  connections, no mess. I'll confirm the table is clean as part of the
+  cutover.
+
+### if OAuth misbehaves in production after merge (the safety net)
+
+- **instant fix:** redeploy the previous `main` commit in Vercel (one click,
+  "Promote to Production" on the last good deployment). the live site is back
+  to today's behavior in under a minute.
+- **the token-paste flow never left**, so even mid-incident, users can still
+  connect the old way.
+- **full schema rollback (only if we abandon OAuth for good):**
+  `supabase/0009_meta_connections_oauth_rollback.sql` drops the 4 columns and
+  puts the table back exactly as it is today. not needed for a normal revert —
+  the columns are harmless when unused.
+
 ## common failure modes (so you don't panic)
 
 - **"URL blocked" during connect-test** → the redirect URI in section 3.3

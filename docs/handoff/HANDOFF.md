@@ -6,8 +6,13 @@
 
 ## Where things stand
 
-- **Active branch:** `feat/byok-and-meta-oauth` — created 2026-07-17 off `origin/main` @ `ba10f6a`. Scope: per-user LLM API keys (BYOK) + Meta OAuth connect. Research + full implementation plans done; no product code yet.
-- **Implementation plans (self-contained, execute task-by-task):** `docs/plans/2026-07-17-meta-oauth-connect.md` (first) and `docs/plans/2026-07-17-byok-llm-keys.md` (independent — a separate agent can run it cold; it repeats all constraints).
+- **Active branch:** `feat/byok-and-meta-oauth` — created 2026-07-17 off `origin/main` @ `ba10f6a`. Scope: per-user LLM API keys (BYOK) + Meta OAuth connect.
+- **Meta OAuth: code COMPLETE + verified locally** (build/lint/6 tests green), NOT deployed, NOT merged. All 7 build tasks committed on this branch. Remaining: apply migration `0009` to DB, deploy a preview, click-test, then merge.
+  - **DB decision (user, 2026-07-17):** apply the additive migration to the **shared** Supabase DB (Option A) — it's backward-compatible and invisible to production code. `supabase/0009_meta_connections_oauth.sql` + rollback `..._rollback.sql`.
+  - **⚠️ Blocker:** Supabase MCP is **unauthorized** in-session and the service-role key is empty locally, so the agent can't apply the migration itself right now. User must run the SQL in the Supabase SQL editor, or authorize Supabase MCP in an interactive session.
+  - **Cutover + cleanup plan** (user asked): test-data connections get deleted before go-live; the 4 columns are permanent feature schema (they stay); safe revert = redeploy prior `main` + manual-paste fallback stays. Documented in `docs/meta-app-setup.md` → "how we roll this out safely".
+  - **User runbook for Meta dashboard:** `docs/meta-app-setup.md` (reuse existing "Marketing API" app — section 2A).
+- **Implementation plans (self-contained, execute task-by-task):** `docs/plans/2026-07-17-meta-oauth-connect.md` and `docs/plans/2026-07-17-byok-llm-keys.md` (BYOK not started; a separate agent can run it cold).
 - **⚠️ Local `main` on this machine is stale and divergent** — it points at an old POC-backup lineage ("Save stable POC backup…"), NOT the real product. Always branch from `origin/main`, never local `main`. (Fixing local main needs a reset — ask the user first.)
 - **`origin/main` gained two commits after Round 9:** `b3c6be4` (README update) and `ba10f6a` (landing page CRO rewrite with motion system, PR #7).
 - **Branch (historical):** `feat/foundation-and-shell` — fully merged into `main` (fast-forward) on 2026-06-22.
