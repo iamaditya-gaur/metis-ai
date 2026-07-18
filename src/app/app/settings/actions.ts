@@ -70,17 +70,31 @@ export async function updatePasswordAction(
 
 export type LlmKeyFormResult = { status: "idle" } | { status: "error"; message: string };
 
-export async function saveOpenAiKeyAction(
+export async function saveManualKeyAction(
   _prev: LlmKeyFormResult,
   formData: FormData,
 ): Promise<LlmKeyFormResult> {
+  const providerRaw = formData.get("provider");
+  const provider =
+    providerRaw === "openai" ? "openai" : providerRaw === "openrouter" ? "openrouter" : null;
+  if (!provider) {
+    return { status: "error", message: "Pick a provider." };
+  }
+
   const raw = formData.get("apiKey");
   const apiKey = typeof raw === "string" ? raw.trim() : "";
   if (!apiKey || apiKey.length > 300) {
-    return { status: "error", message: "Paste a valid OpenAI API key." };
+    return {
+      status: "error",
+      message:
+        provider === "openrouter"
+          ? "Paste a valid OpenRouter API key."
+          : "Paste a valid OpenAI API key.",
+    };
   }
+
   try {
-    await saveLlmKey("openai", apiKey);
+    await saveLlmKey(provider, apiKey);
   } catch (error) {
     return {
       status: "error",
@@ -88,6 +102,7 @@ export async function saveOpenAiKeyAction(
     };
   }
   revalidatePath("/app/settings");
+  revalidatePath("/app/reports");
   redirect("/app/settings?llm_saved=1");
 }
 

@@ -15,14 +15,31 @@ export async function validateLlmKey(provider: LlmProvider, apiKey: string): Pro
     provider === "openrouter"
       ? "https://openrouter.ai/api/v1/key"
       : "https://api.openai.com/v1/models";
-  const response = await fetch(probe, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-  if (!response.ok) {
+
+  let response: Response;
+  try {
+    response = await fetch(probe, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+  } catch {
+    // Network / DNS failure reaching the provider — not the key's fault.
     throw new Error(
-      provider === "openrouter"
-        ? "OpenRouter rejected this key."
-        : "OpenAI rejected this key. Check it at platform.openai.com → API keys.",
+      "Couldn't reach the provider to verify this key. Check your connection and try again.",
+    );
+  }
+
+  if (!response.ok) {
+    if (provider === "openrouter") {
+      throw new Error(
+        response.status === 401
+          ? "OpenRouter rejected this key. Copy a fresh one from openrouter.ai/keys."
+          : "OpenRouter couldn't verify this key — it may be invalid, revoked, or out of credits.",
+      );
+    }
+    throw new Error(
+      response.status === 401
+        ? "OpenAI rejected this key. Check it at platform.openai.com → API keys."
+        : "OpenAI couldn't verify this key — it may be invalid, revoked, or out of quota.",
     );
   }
 }
