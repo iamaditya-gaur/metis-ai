@@ -108,6 +108,7 @@ Being honest about what's still rough:
 
 ## Recently Shipped
 
+- **2026-07-18, Bring your own AI key (BYOK).** Signed-in users connect their own OpenRouter (one-click OAuth) or OpenAI (paste) key in Settings — authed reports then run on *their* key instead of the shared app key. Keys are AES-256-GCM encrypted at rest and RLS-scoped to the owner, with only the last four shown; no connected key means a friendly prompt, never a silent fallback to the app's key. The open `/reporting` demo still uses the app key. New `llm_keys` table (migration `0010`).
 - **2026-06-22, History tab polish + session wrap-up.** Sort + per-row delete on `/app/history`, client-style message hero on each run detail with a copy button, top-left "← History" chevron back nav. Lint and build green; ~200 lines of orphan CSS pruned.
 - **2026-06-22, Production landing page + auth-aware nav.** `/` is now a real landing page (the waitlist form is gone — the historical signups stay in the DB). Top nav switches between *Sign in / Get started* and *Open app* depending on the Supabase session.
 - **2026-06-21, Reporting studio rehaul.** Collapsing-wizard input form, brand-matched date-range picker with presets and viewport-aware flip, unified tone-context drop-zone with DB-backed *Use preset* history (`meta_tone_sources` table), output tab / inline-disclosure A/B, conventional hamburger sidebar toggle, sentence-case eyebrows. Reporting brain (`src/lib/metis/*`) untouched.
