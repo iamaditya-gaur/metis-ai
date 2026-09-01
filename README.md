@@ -102,7 +102,7 @@ Being honest about what's still rough:
 - The public `/reporting` demo intentionally keeps token-paste access; `/app/reports` is authenticated.
 - The anonymous demo still needs a platform-level request quota before this branch can be broadly promoted.
 - The model evaluation covers one account and two August windows. Broader account and season coverage is still needed before automated model promotion.
-- Reporting evals and secret scanning are not yet required CI checks.
+- Private reporting evals remain manual because real fixtures never enter Git; public tests, lint, build, audit, and dependency review now run on pull requests.
 - The build is clean, but Next.js now warns that its `middleware` filename will need migration to `proxy` in a future release.
 - Builder mode (`/builder`, paused-draft creation) is functional but less polished than reporting.
 

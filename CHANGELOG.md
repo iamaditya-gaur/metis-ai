@@ -30,6 +30,8 @@ deployed continuously. Each entry is dated and tagged with its PR.
   private evaluation directory. Public tests and docs contain generic examples.
 - Upgrades Next.js and its ESLint config to 16.3.4 and pins the patched compatible
   Nano ID release identified by the dependency audit.
+- Adds a least-privilege pull-request check for tests, lint, the production build,
+  npm audit, and dependency review using immutable official action commits.
 
 ### Verification before merge
 
