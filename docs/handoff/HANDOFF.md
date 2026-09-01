@@ -1,17 +1,29 @@
 # Metis AI — current agent handoff
 
-**Last updated:** 2026-07-18 (BYOK / bring-your-own-AI-key — built on branch `claude/byok-llm-keys-4407f4`, verified on preview, pending merge)
+**Last updated:** 2026-09-01 (reporting model defaults)
 
 > Read this file once. Don't pre-load the other docs — they're listed in the "If you need to dig deeper" table at the bottom; open them only when the task at hand actually calls for it.
 
 ## Where things stand
 
-- **Branch:** `feat/foundation-and-shell` — fully merged into `main` (fast-forward) on 2026-06-22.
+- **Branch:** BYOK is on `main`; reporting model defaults are prepared on `codex/reporting-model-defaults`.
 - **Production URL:** https://metis-ai-nine.vercel.app — live on the latest build.
 - **Repo + project:** GitHub `iamaditya-gaur/metis-ai`, single Vercel project, single linked Supabase project.
 - **Auth gate:** `/app/*` requires a Supabase session. `/admin/*` requires the admin password cookie. `/`, `/reporting`, `/login`, `/signup`, `/reset-password` are public.
 
-## BYOK — bring your own AI key (2026-07-18, branch `claude/byok-llm-keys-4407f4`, not yet merged)
+## Reporting model defaults (2026-09-01)
+
+- **Scope:** model preferences only. No provider, key-storage, prompt, API,
+  Slack, database, recipient, or delivery changes.
+- **Tone extraction:** GPT-5.6 Luna → Claude Sonnet 4.6 → GPT-5.4 Mini.
+- **Client message:** GPT-5.6 Terra → Claude Sonnet 4.6 → GPT-5.4 Mini.
+- **Unchanged:** factual summaries and voice/fact checks remain GPT-5.4 Mini.
+- **BYOK:** signed-in runs continue to use the user's connected OpenRouter or
+  OpenAI key. The same chains can be overridden through environment variables.
+- **Privacy:** evaluation inputs, brand data, credentials, and outputs are not
+  committed.
+
+## BYOK — bring your own AI key (shipped 2026-07-18)
 
 - **What it is:** signed-in users connect their own AI key (OpenRouter one-click OAuth or OpenAI/OpenRouter paste) in Settings → *AI key*; authed report runs use *their* key. New RLS-scoped `llm_keys` table (migration `0010`, one row per user, AES-256-GCM via `token-encryption.ts`, last-4 display only).
 - **The seam:** every LLM call funnels through two `.mjs` functions (`requestOpenRouterJson` in `llm.mjs`, `generateOpenRouterReportSummary` in `reporting.mjs`). They now read a per-request `AsyncLocalStorage` context (`scripts/pocs/lib/llm-context.mjs`); the API route wraps `runReportingWorkflow` in `runWithLlmKey(...)`. **No context set → byte-identical env-var fallback**, so `src/lib/metis/*` was untouched and the anonymous `/reporting` demo is unchanged. Keep touched routes on the Node runtime (ALS needs it — no `export const runtime = "edge"`).
@@ -46,7 +58,9 @@ Round 4 already documented below. Subsequent rounds (June 21–22 sessions) adde
 
 ## Hard constraints (user has stated all of these explicitly)
 
-- **Do NOT touch `src/lib/metis/*`** — that's the reporting brain. Off-limits this whole branch.
+- **Preserve the reporting prompts and workflow.** Model-only work should stay
+  in the model policy and its call-site wiring unless the user approves a wider
+  reporting change.
 - **No long-lived Chromium sessions.** `mcp__Claude_Preview__*` + `next dev` + Turbopack ate 60+ GB RAM and crashed the user's machine. QA pattern: `npm run build`, `curl` the deployed preview, Supabase MCP for SQL, one-shot screenshots only (`preview_start → screenshot → preview_stop` in the same tool turn).
 - **`vercel env pull` writes empty strings for sensitive vars locally.** You can't fully test on `npm run dev`; test on the deployed preview (where the real envs live).
 - **`NEXT_PUBLIC_*` vars are baked at build time** — set them in Vercel for Production, Preview, AND Development before deploying. `/api/health` is the fastest way to confirm.
