@@ -325,7 +325,10 @@ function validateGeneratedReport(value) {
   };
 }
 
-export async function generateOpenRouterReportSummary(promptInput) {
+export async function generateOpenRouterReportSummary(
+  promptInput,
+  { model: requestedModel, maxTokens, timeoutMs } = {},
+) {
   const llmConfig = getLlmCallConfig();
   const apiKey = llmConfig.apiKey;
 
@@ -338,11 +341,16 @@ export async function generateOpenRouterReportSummary(promptInput) {
   }
 
   const model = llmConfig.mapModel(
-    process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-5.4-mini",
+    requestedModel?.trim() ||
+      process.env.OPENROUTER_MODEL?.trim() ||
+      "openai/gpt-5.4-mini",
   );
   const startedAt = performance.now();
   const response = await fetch(llmConfig.endpoint, {
     method: "POST",
+    ...(Number.isInteger(timeoutMs) && timeoutMs > 0
+      ? { signal: AbortSignal.timeout(timeoutMs) }
+      : {}),
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
@@ -350,6 +358,9 @@ export async function generateOpenRouterReportSummary(promptInput) {
     },
     body: JSON.stringify({
       model,
+      ...(Number.isInteger(maxTokens) && maxTokens > 0
+        ? { max_tokens: maxTokens }
+        : {}),
       response_format: {
         type: "json_object",
       },
@@ -431,6 +442,9 @@ export async function generateOpenRouterReportSummary(promptInput) {
         num(usageBlock?.cost) ??
         num(usageBlock?.cost_details?.upstream_inference_cost) ??
         null,
+      provider:
+        typeof payload?.provider === "string" ? payload.provider : null,
+      requestId: typeof payload?.id === "string" ? payload.id : null,
       latencyMs,
       attempts: [
         {

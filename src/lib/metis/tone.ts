@@ -1427,6 +1427,8 @@ export type OpenRouterUsage = {
   completionTokens: number | null;
   totalTokens: number | null;
   costUsd: number | null;
+  provider: string | null;
+  requestId: string | null;
   latencyMs: number | null;
   attempts: Array<{
     model: string;
@@ -1453,6 +1455,11 @@ type RequestOpenRouterJsonResult = {
 
 export async function buildToneProfile(
   toneExamples: string,
+  options: {
+    models?: string[];
+    maxTokens?: number;
+    timeoutMs?: number;
+  } = {},
 ): Promise<{
   profile: ToneProfile;
   model: string | null;
@@ -1494,8 +1501,10 @@ export async function buildToneProfile(
         examples: samples.slice(0, 6),
         heuristicProfile,
       },
-      models: getCommunicatorModelCandidates(),
+      models: options.models ?? getCommunicatorModelCandidates(),
       temperature: getToneProfileTemperature(),
+      maxTokens: options.maxTokens,
+      timeoutMs: options.timeoutMs,
     })) as RequestOpenRouterJsonResult;
 
     return {
@@ -1626,6 +1635,9 @@ export async function composeClientMessage({
   toneProfile,
   critiqueFeedback,
   changesSummary,
+  models,
+  maxTokens,
+  timeoutMs,
 }: {
   report: ReportForToneRewrite;
   snapshot: SnapshotForToneRewrite;
@@ -1633,6 +1645,9 @@ export async function composeClientMessage({
   toneProfile: ToneProfile;
   critiqueFeedback?: string[];
   changesSummary?: string | null;
+  models?: string[];
+  maxTokens?: number;
+  timeoutMs?: number;
 }): Promise<{
   message: string;
   model: string;
@@ -1700,8 +1715,10 @@ ${trimmedChanges}
   const result = (await requestOpenRouterJson({
     systemPrompt: COMPOSE_SYSTEM_PROMPT,
     userMessage,
-    models: getCommunicatorModelCandidates(),
+    models: models ?? getCommunicatorModelCandidates(),
     temperature: getComposeTemperature(),
+    maxTokens,
+    timeoutMs,
   })) as RequestOpenRouterJsonResult;
 
   if (
@@ -1749,9 +1766,15 @@ const VOICE_JUDGE_SYSTEM_PROMPT =
 export async function gradeVoiceMatch({
   clientMessage,
   samples,
+  models,
+  maxTokens,
+  timeoutMs,
 }: {
   clientMessage: string;
   samples: string[];
+  models?: string[];
+  maxTokens?: number;
+  timeoutMs?: number;
 }): Promise<
   VoiceMatchVerdict & {
     model: string | null;
@@ -1792,8 +1815,10 @@ Score the candidate against the examples on voice only. Output JSON: {"score": 0
   const result = (await requestOpenRouterJson({
     systemPrompt: VOICE_JUDGE_SYSTEM_PROMPT,
     userMessage,
-    models: getVoiceJudgeModelCandidates(),
+    models: models ?? getVoiceJudgeModelCandidates(),
     temperature: 0,
+    maxTokens,
+    timeoutMs,
   })) as RequestOpenRouterJsonResult;
 
   const data = result.data as { score?: unknown; mismatches?: unknown } | null;
@@ -1849,9 +1874,15 @@ const FACT_JUDGE_SYSTEM_PROMPT =
 export async function gradeFactMatch({
   clientMessage,
   sourceFacts,
+  models,
+  maxTokens,
+  timeoutMs,
 }: {
   clientMessage: string;
   sourceFacts: string;
+  models?: string[];
+  maxTokens?: number;
+  timeoutMs?: number;
 }): Promise<
   FactMatchVerdict & {
     model: string | null;
@@ -1885,8 +1916,10 @@ Audit the CANDIDATE against SOURCE_FACTS. Walk the 8 categories in the system pr
   const result = (await requestOpenRouterJson({
     systemPrompt: FACT_JUDGE_SYSTEM_PROMPT,
     userMessage,
-    models: getFactJudgeModelCandidates(),
+    models: models ?? getFactJudgeModelCandidates(),
     temperature: 0,
+    maxTokens,
+    timeoutMs,
   })) as RequestOpenRouterJsonResult;
 
   const data = result.data as { score?: unknown; mismatches?: unknown } | null;

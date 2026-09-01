@@ -23,8 +23,10 @@ export function ReportingForm({ accounts, isPending, onRun }: ReportingFormProps
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const selectedAccount = accounts.find((account) => account.id === accountId);
     onRun({
       accountId,
+      accountName: selectedAccount?.name ?? selectedAccount?.label ?? null,
       dateStart,
       dateEnd,
       toneExamples,
@@ -57,7 +59,7 @@ export function ReportingForm({ accounts, isPending, onRun }: ReportingFormProps
             </select>
             <span className="product-select-indicator" aria-hidden="true" />
           </div>
-          <p className="product-help">Reporting should default to CB and keep that account label visible across the run.</p>
+          <p className="product-help">The selected account stays visible across the full reporting run.</p>
         </div>
 
         <div className="product-grid product-grid--two">

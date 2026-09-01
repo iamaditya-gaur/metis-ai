@@ -46,6 +46,8 @@ function extractUsageFromPayload(payload) {
  *   model?: string;
  *   models?: string[] | null;
  *   temperature?: number;
+ *   maxTokens?: number;
+ *   timeoutMs?: number;
  * }} options
  *
  * Returns `{ model, data, usage }` where `usage` contains:
@@ -62,6 +64,8 @@ export async function requestOpenRouterJson({
   model = process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-5.4-mini",
   models = null,
   temperature,
+  maxTokens,
+  timeoutMs,
 }) {
   if (typeof userMessage !== "string" && userPayload === undefined) {
     throw new Error("requestOpenRouterJson requires either userMessage or userPayload.");
@@ -105,6 +109,9 @@ export async function requestOpenRouterJson({
       const wireModel = llmConfig.mapModel(candidateModel);
       response = await fetch(llmConfig.endpoint, {
         method: "POST",
+        ...(Number.isInteger(timeoutMs) && timeoutMs > 0
+          ? { signal: AbortSignal.timeout(timeoutMs) }
+          : {}),
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
@@ -113,6 +120,9 @@ export async function requestOpenRouterJson({
         body: JSON.stringify({
           model: wireModel,
           ...(typeof temperature === "number" ? { temperature } : {}),
+          ...(Number.isInteger(maxTokens) && maxTokens > 0
+            ? { max_tokens: maxTokens }
+            : {}),
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: systemPrompt },
@@ -209,6 +219,9 @@ export async function requestOpenRouterJson({
         data: parsed,
         usage: {
           ...usage,
+          provider:
+            typeof payload?.provider === "string" ? payload.provider : null,
+          requestId: typeof payload?.id === "string" ? payload.id : null,
           latencyMs,
           attempts,
           attemptedModels: attempts.map((entry) => entry.model),

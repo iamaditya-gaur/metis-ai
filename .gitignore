@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/.private-evals/
 
 # next.js
 /.next/

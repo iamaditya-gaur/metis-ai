@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "eval:reporting:fetch": "tsx evals/reporting-model-comparison/run.ts --phase fetch",
+    "eval:reporting:screen": "tsx evals/reporting-model-comparison/run.ts --phase screen",
+    "eval:reporting:final": "tsx evals/reporting-model-comparison/run.ts --phase final"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
@@ -27,6 +30,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
+    "tsx": "^4.20.6",
     "typescript": "^5",
     "vitest": "^4.1.10"
   }
