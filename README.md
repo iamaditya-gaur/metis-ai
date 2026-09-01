@@ -66,6 +66,17 @@ Two things worth knowing about the back-and-forth:
 - The compose step does **not** rewrite the factual report. It reads facts plus your examples and writes a fresh message. Anchoring on a pre-written draft is what kept earlier versions sounding corporate.
 - Two judges run in parallel after the first compose. If either flags something, one regen runs with the specific mismatches as feedback. Cost-gated, so the happy path is one cheap judge call per run, not unconditional retries.
 
+### Default Reporting Models
+
+| Step | Preferred model | Fallbacks |
+|---|---|---|
+| Factual summary | GPT-5.4 Mini | — |
+| Tone extraction | GPT-5.6 Luna | Claude Sonnet 4.6, then GPT-5.4 Mini |
+| Client message | GPT-5.6 Terra | Claude Sonnet 4.6, then GPT-5.4 Mini |
+| Voice and fact checks | GPT-5.4 Mini | — |
+
+These are model preferences, not provider changes. Signed-in reporting still uses each user's connected OpenRouter or OpenAI key. Operators can override either model chain through environment variables without changing the workflow.
+
 ### What I Tightened Recently
 
 - **Three-tier activity attribution.** Operator edits get first-person verbiage, automation rules get neutral passive, and noise from Shopify Audiences, pixel events, and ASA gets filtered out before it reaches the LLM.

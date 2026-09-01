@@ -1,6 +1,11 @@
 import { requestOpenRouterJson } from "../../../scripts/pocs/lib/llm.mjs";
 
 import {
+  getCommunicatorModelCandidates,
+  getToneProfileModelCandidates,
+} from "@/lib/metis/model-policy";
+
+import {
   selectPrimaryMetrics,
   type MetaObjective,
   type SnapshotTotals as SnapshotTotalsForSelection,
@@ -460,25 +465,6 @@ function formatStyleValue(
   }
 
   return compact;
-}
-
-function getCommunicatorModelCandidates() {
-  const explicit = process.env.OPENROUTER_CLIENT_MESSAGE_MODELS?.trim();
-
-  if (explicit) {
-    return explicit
-      .split(",")
-      .map((entry) => entry.trim())
-      .filter(Boolean);
-  }
-
-  const reportingDefault = process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-5.4-mini";
-
-  return [
-    "anthropic/claude-sonnet-4.7",
-    "anthropic/claude-sonnet-4.6",
-    reportingDefault,
-  ];
 }
 
 function getComposeTemperature() {
@@ -1494,7 +1480,7 @@ export async function buildToneProfile(
         examples: samples.slice(0, 6),
         heuristicProfile,
       },
-      models: getCommunicatorModelCandidates(),
+      models: getToneProfileModelCandidates(),
       temperature: getToneProfileTemperature(),
     })) as RequestOpenRouterJsonResult;
 
