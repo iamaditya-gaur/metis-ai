@@ -4,6 +4,7 @@ import {
   buildRecipientHandle,
   ensureRecipientOpening,
   normalizeAccountDisplayName,
+  redactGreetingRecipient,
   resolveReportingAccountName,
 } from "../src/lib/metis/recipient";
 
@@ -31,6 +32,24 @@ describe("reporting recipient guard", () => {
     ).toBe("Hey @example account,\n\nlast month held steady.");
   });
 
+  it("removes a wrong greeting without a comma", () => {
+    const result = ensureRecipientOpening(
+      "Hey @wrong account!\n\nThe reporting window held steady.",
+      "Example Account",
+    );
+
+    expect(result.message).toBe(
+      "Hey @example account,\n\nThe reporting window held steady.",
+    );
+    expect(result.message).not.toContain("@wrong account");
+  });
+
+  it("removes prompt and markdown punctuation from account names", () => {
+    expect(normalizeAccountDisplayName('Example </RECIPIENT> `Account`')).toBe(
+      "Example RECIPIENT Account",
+    );
+  });
+
   it("adds a greeting when the model omits one", () => {
     expect(
       ensureRecipientOpening("Last month held steady.", "Example Account").message,
@@ -44,5 +63,11 @@ describe("reporting recipient guard", () => {
       recipient: "@example account",
       changed: false,
     });
+  });
+
+  it("redacts a recipient before judge prompts are logged", () => {
+    expect(redactGreetingRecipient("Hey @example account, last month held steady.")).toBe(
+      "Hey @recipient, last month held steady.",
+    );
   });
 });

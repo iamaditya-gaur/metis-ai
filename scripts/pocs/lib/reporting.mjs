@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { performance } from "node:perf_hooks";
 
-import { getLlmCallConfig } from "./llm-context.mjs";
+import { requestOpenRouterJson } from "./llm.mjs";
 import { maskAdAccountId, maskName } from "./mask.mjs";
 
 function round(value, decimals = 2) {
@@ -329,139 +328,48 @@ export async function generateOpenRouterReportSummary(
   promptInput,
   { model: requestedModel, maxTokens, timeoutMs } = {},
 ) {
-  const llmConfig = getLlmCallConfig();
-  const apiKey = llmConfig.apiKey;
-
-  if (!apiKey) {
-    throw new Error(
-      llmConfig.isUserKey
-        ? "Your connected AI key could not be read. Reconnect it in Settings."
-        : "Missing OPENROUTER_API_KEY.",
-    );
-  }
-
-  const model = llmConfig.mapModel(
+  const model =
     requestedModel?.trim() ||
-      process.env.OPENROUTER_MODEL?.trim() ||
-      "openai/gpt-5.4-mini",
-  );
-  const startedAt = performance.now();
-  const response = await fetch(llmConfig.endpoint, {
-    method: "POST",
-    ...(Number.isInteger(timeoutMs) && timeoutMs > 0
-      ? { signal: AbortSignal.timeout(timeoutMs) }
-      : {}),
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-      ...llmConfig.extraHeaders,
-    },
-    body: JSON.stringify({
-      model,
-      ...(Number.isInteger(maxTokens) && maxTokens > 0
-        ? { max_tokens: maxTokens }
-        : {}),
-      response_format: {
-        type: "json_object",
-      },
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are the Reporting Analyst Agent for Metis AI. Use OpenRouter as the LLM gateway. Return valid JSON only with keys executiveSummary, whatChanged, risks, nextActions, slackMessage. Never invent metrics, never expose secrets, and keep the Slack message concise.",
-        },
-        {
-          role: "user",
-          content: JSON.stringify(promptInput),
-        },
-      ],
-    }),
-  });
-
-  const payload = await response.json();
-  const latencyMs = Math.round(performance.now() - startedAt);
-
-  if (!response.ok) {
-    // 401 = invalid / expired / revoked API key, or suspended account.
-    // Surface a clean, actionable message instead of a raw payload dump so
-    // the UI can show the operator what to do next.
-    // 402 (out of credits) and 403 (forbidden) are also terminal key/account
-    // problems — surface them as "reconnect your key" for a per-request user
-    // key (BYOK). On the env fallback path (isUserKey === false) only 401
-    // short-circuits, byte-identical to the original behavior.
-    if (
-      response.status === 401 ||
-      (llmConfig.isUserKey && (response.status === 402 || response.status === 403))
-    ) {
-      const err = new Error(
-        llmConfig.isUserKey
-          ? "Your connected AI key was rejected (invalid, revoked, or out of credits). Reconnect or replace it in Settings → AI key."
-          : "OpenRouter API key is invalid, expired, or revoked. Update OPENROUTER_API_KEY in Vercel (Project Settings → Environment Variables) for both Preview and Production, then redeploy.",
-      );
-      err.code = "OPENROUTER_AUTH_FAILED";
-      err.httpStatus = response.status;
-      throw err;
-    }
-    throw new Error(
-      `OpenRouter API request failed with status ${response.status}: ${JSON.stringify(payload)}`,
-    );
-  }
-
-  const message = payload?.choices?.[0]?.message?.content;
-
-  if (typeof message !== "string" || !message.trim()) {
-    throw new Error("OpenRouter API returned no message content.");
-  }
-
-  let parsed;
-
-  try {
-    parsed = JSON.parse(message);
-  } catch {
-    throw new Error("OpenRouter message content was not valid JSON.");
-  }
-
-  const usageBlock =
-    payload && typeof payload === "object" && payload.usage && typeof payload.usage === "object"
-      ? payload.usage
-      : null;
-  const num = (value) =>
-    typeof value === "number" && Number.isFinite(value) ? value : null;
+    process.env.OPENROUTER_MODEL?.trim() ||
+    "openai/gpt-5.4-mini";
 
   const systemPrompt =
     "You are the Reporting Analyst Agent for Metis AI. Use OpenRouter as the LLM gateway. Return valid JSON only with keys executiveSummary, whatChanged, risks, nextActions, slackMessage. Never invent metrics, never expose secrets, and keep the Slack message concise.";
+  const result = await requestOpenRouterJson({
+    systemPrompt,
+    userPayload: promptInput,
+    model,
+    maxTokens: maxTokens ?? 900,
+    timeoutMs: timeoutMs ?? 45_000,
+    requiredKeys: [
+      "executiveSummary",
+      "whatChanged",
+      "risks",
+      "nextActions",
+      "slackMessage",
+    ],
+    validateData: (data) => {
+      if (!data || typeof data !== "object" || Array.isArray(data)) {
+        return "report must be a JSON object";
+      }
+      if (
+        typeof data.executiveSummary !== "string" ||
+        typeof data.slackMessage !== "string" ||
+        !Array.isArray(data.whatChanged) ||
+        !Array.isArray(data.risks) ||
+        !Array.isArray(data.nextActions)
+      ) {
+        return "report fields have invalid value types";
+      }
+      return true;
+    },
+  });
 
   return {
-    model,
-    report: validateGeneratedReport(parsed),
-    usage: {
-      promptTokens: num(usageBlock?.prompt_tokens),
-      completionTokens: num(usageBlock?.completion_tokens),
-      totalTokens: num(usageBlock?.total_tokens),
-      costUsd:
-        num(usageBlock?.cost) ??
-        num(usageBlock?.cost_details?.upstream_inference_cost) ??
-        null,
-      provider:
-        typeof payload?.provider === "string" ? payload.provider : null,
-      requestId: typeof payload?.id === "string" ? payload.id : null,
-      latencyMs,
-      attempts: [
-        {
-          model,
-          status: "success",
-          httpStatus: response.status,
-          latencyMs,
-          errorMessage: null,
-        },
-      ],
-      attemptedModels: [model],
-    },
-    prompts: {
-      systemPrompt,
-      userMessage: JSON.stringify(promptInput),
-      responseRaw: message,
-    },
+    model: result.model,
+    report: validateGeneratedReport(result.data),
+    usage: result.usage,
+    prompts: result.prompts,
   };
 }
 

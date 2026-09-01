@@ -1,6 +1,6 @@
 # Reporting Context
 
-Last updated: 2026-04-26
+Last updated: 2026-09-01
 
 ## Purpose
 
@@ -11,6 +11,50 @@ The goal is to preserve:
 - the decisions that are now locked
 - the important files to review before touching code
 - the Vercel deployment context for taking this live later
+
+## Reporting Model Policy
+
+The reporting flow keeps each model on one narrow job. Defaults can be changed
+with environment variables without editing code:
+
+| Step | Default | Reason |
+|---|---|---|
+| Factual summary | `openai/gpt-5.4-mini` | Passed the factual monthly baseline |
+| Tone extraction | `anthropic/claude-sonnet-4.6` | Existing production baseline retained after the newer bundle failed final checks |
+| Client message | `anthropic/claude-sonnet-4.6` | Existing production baseline retained after the newer bundle failed final checks |
+| Voice and fact checks | `openai/gpt-5.4-mini` | Only judge that passed every controlled good/bad case |
+
+The client-message fallback order is Claude Sonnet 4.6, then the configured
+reporting model. Signed-in and evaluation calls retry once only when the provider
+returns empty, malformed, or schema-incomplete JSON. Anonymous shared-key calls
+do not retry unless explicitly enabled. Each attempt is captured in usage and
+cost totals, and the reporting workflow has a bounded AI-call deadline.
+
+The August monthly evaluation tested GPT-5.6 Luna for tone extraction and
+GPT-5.6 Terra for client messages. The integrated bundle passed deterministic
+checks, but a required second judge pass rejected voice in all three runs and
+facts in one run. Those models remain evaluation candidates, not defaults.
+
+### Recipient identity guard
+
+The final message recipient comes from the account name returned by Meta. The
+name selected in the browser is only a fallback when a zero-row insight response
+does not include it. Names are normalized before entering the prompt, and a
+deterministic final check repairs a missing, generic, or wrong opening before the
+message is returned, logged, or sent.
+
+### Private evaluation boundary
+
+Tone examples, frozen Meta data, prompts, model outputs, and cost ledgers stay
+under `.private-evals/`. That directory is ignored by Git. Public tests and docs
+use generic account examples only.
+
+### Rollback
+
+No code rollback is required for a model-only incident. Set the tone and client
+message model environment variables back to the prior model chain, keep summary
+and judges on the factual baseline, then redeploy. The recipient guard and JSON
+validation should remain enabled.
 
 ## Locked Product Decision
 
@@ -35,7 +79,7 @@ This means future work on reporting should prioritize `/reporting`, not `/app/re
 ### Standalone route
 
 - Public standalone route: `/reporting`
-- File: [src/app/reporting/page.tsx](/Users/adi/my-weekender-project/src/app/reporting/page.tsx)
+- File: [src/app/reporting/page.tsx](../src/app/reporting/page.tsx)
 
 ### User flow
 
@@ -139,16 +183,16 @@ Current logic:
 ### Standalone route
 
 - `/reporting`
-- file: [src/app/reporting/page.tsx](/Users/adi/my-weekender-project/src/app/reporting/page.tsx)
+- file: [src/app/reporting/page.tsx](../src/app/reporting/page.tsx)
 
 ### Standalone UI
 
-- [src/components/standalone-reporting-flow.tsx](/Users/adi/my-weekender-project/src/components/standalone-reporting-flow.tsx)
+- [src/components/standalone-reporting-flow.tsx](../src/components/standalone-reporting-flow.tsx)
 - this component owns the token-entry screen, token session handoff, and the account-loading waiting state overlay
 
 ### Shared reporting desk UI
 
-- [src/components/reporting-studio.tsx](/Users/adi/my-weekender-project/src/components/reporting-studio.tsx)
+- [src/components/reporting-studio.tsx](../src/components/reporting-studio.tsx)
 - this component now owns:
   - reporting form state
   - tone-context paste input
@@ -159,17 +203,17 @@ Current logic:
 ### Account loading API
 
 - route: `POST /api/metis/accounts`
-- file: [src/app/api/metis/accounts/route.ts](/Users/adi/my-weekender-project/src/app/api/metis/accounts/route.ts)
+- file: [src/app/api/metis/accounts/route.ts](../src/app/api/metis/accounts/route.ts)
 
 Behavior:
-- `GET` keeps env-backed account behavior
-- `POST` accepts `{ accessToken }`
+- no public `GET` account list
+- `POST` accepts `{ accessToken }` or a signed-in saved `connectionId`
 - used by standalone `/reporting`
 
 ### Reporting run API
 
 - route: `POST /api/metis/reporting`
-- file: [src/app/api/metis/reporting/route.ts](/Users/adi/my-weekender-project/src/app/api/metis/reporting/route.ts)
+- file: [src/app/api/metis/reporting/route.ts](../src/app/api/metis/reporting/route.ts)
 
 Behavior:
 - accepts reporting payload
@@ -180,27 +224,27 @@ Behavior:
 
 These are the primary files to read before proposing or making changes to the reporting product:
 
-- [src/app/reporting/page.tsx](/Users/adi/my-weekender-project/src/app/reporting/page.tsx)
-- [src/components/standalone-reporting-flow.tsx](/Users/adi/my-weekender-project/src/components/standalone-reporting-flow.tsx)
-- [src/components/reporting-studio.tsx](/Users/adi/my-weekender-project/src/components/reporting-studio.tsx)
-- [src/components/processing-overlay.tsx](/Users/adi/my-weekender-project/src/components/processing-overlay.tsx)
-- [src/components/glass-panel.tsx](/Users/adi/my-weekender-project/src/components/glass-panel.tsx)
-- [src/components/status-pill.tsx](/Users/adi/my-weekender-project/src/components/status-pill.tsx)
-- [src/app/globals.css](/Users/adi/my-weekender-project/src/app/globals.css)
-- [src/app/api/metis/accounts/route.ts](/Users/adi/my-weekender-project/src/app/api/metis/accounts/route.ts)
-- [src/app/api/metis/reporting/route.ts](/Users/adi/my-weekender-project/src/app/api/metis/reporting/route.ts)
-- [src/lib/metis/accounts.ts](/Users/adi/my-weekender-project/src/lib/metis/accounts.ts)
-- [src/lib/metis/reporting.ts](/Users/adi/my-weekender-project/src/lib/metis/reporting.ts)
-- [src/lib/metis/tone.ts](/Users/adi/my-weekender-project/src/lib/metis/tone.ts)
-- [src/lib/metis/types.ts](/Users/adi/my-weekender-project/src/lib/metis/types.ts)
-- [scripts/pocs/lib/meta-client.mjs](/Users/adi/my-weekender-project/scripts/pocs/lib/meta-client.mjs)
-- [scripts/pocs/lib/reporting.mjs](/Users/adi/my-weekender-project/scripts/pocs/lib/reporting.mjs)
-- [vercel.json](/Users/adi/my-weekender-project/vercel.json)
-- [.vercel/project.json](/Users/adi/my-weekender-project/.vercel/project.json)
+- [src/app/reporting/page.tsx](../src/app/reporting/page.tsx)
+- [src/components/standalone-reporting-flow.tsx](../src/components/standalone-reporting-flow.tsx)
+- [src/components/reporting-studio.tsx](../src/components/reporting-studio.tsx)
+- [src/components/processing-overlay.tsx](../src/components/processing-overlay.tsx)
+- [src/components/glass-panel.tsx](../src/components/glass-panel.tsx)
+- [src/components/status-pill.tsx](../src/components/status-pill.tsx)
+- [src/app/globals.css](../src/app/globals.css)
+- [src/app/api/metis/accounts/route.ts](../src/app/api/metis/accounts/route.ts)
+- [src/app/api/metis/reporting/route.ts](../src/app/api/metis/reporting/route.ts)
+- [src/lib/metis/accounts.ts](../src/lib/metis/accounts.ts)
+- [src/lib/metis/reporting.ts](../src/lib/metis/reporting.ts)
+- [src/lib/metis/tone.ts](../src/lib/metis/tone.ts)
+- [src/lib/metis/types.ts](../src/lib/metis/types.ts)
+- [scripts/pocs/lib/meta-client.mjs](../scripts/pocs/lib/meta-client.mjs)
+- [scripts/pocs/lib/reporting.mjs](../scripts/pocs/lib/reporting.mjs)
+- [vercel.json](../vercel.json)
+- [.vercel/project.json](../.vercel/project.json)
 
 If the future task is about live deployment or production hardening, the agent should also review:
 
-- [README.md](/Users/adi/my-weekender-project/README.md)
+- [README.md](../README.md)
 
 ## Vercel Context
 
@@ -208,14 +252,12 @@ This repo is already linked to a Vercel project.
 
 ### Vercel project link
 
-From [.vercel/project.json](/Users/adi/my-weekender-project/.vercel/project.json):
-- `projectName`: `metis-ai`
-- `projectId`: `prj_IQ89RQuhr6FnssPiILdYc2jcEgMS`
-- `orgId`: `team_hFyiSC5VvlKbxhNtKWekLAv9`
+The local checkout is linked through ignored `.vercel` metadata. Do not copy
+project or organization IDs into committed documentation.
 
 ### Vercel framework config
 
-From [vercel.json](/Users/adi/my-weekender-project/vercel.json):
+From [vercel.json](../vercel.json):
 - framework: `nextjs`
 
 ### Important deployment note
@@ -239,14 +281,17 @@ Future agents should remember:
 
 - Meta account fetch for `/reporting` can use the user-supplied access token
 - reporting generation still requires `OPENROUTER_API_KEY`
-- reporting delivery still requires `SLACK_WEBHOOK_URL`
+- signed-in Slack delivery still requires `SLACK_WEBHOOK_URL`; anonymous runs
+  only return the message on screen
 - Meta client behavior may also use `META_APP_SECRET` if app secret proof is configured
+- evaluation commands must never send Slack messages, write Supabase run logs,
+  or deploy the app
 
 Relevant env references:
-- [src/lib/metis/env.ts](/Users/adi/my-weekender-project/src/lib/metis/env.ts)
-- [scripts/pocs/lib/meta-client.mjs](/Users/adi/my-weekender-project/scripts/pocs/lib/meta-client.mjs)
-- [scripts/pocs/lib/reporting.mjs](/Users/adi/my-weekender-project/scripts/pocs/lib/reporting.mjs)
-- [scripts/pocs/lib/slack.mjs](/Users/adi/my-weekender-project/scripts/pocs/lib/slack.mjs)
+- [src/lib/metis/env.ts](../src/lib/metis/env.ts)
+- [scripts/pocs/lib/meta-client.mjs](../scripts/pocs/lib/meta-client.mjs)
+- [scripts/pocs/lib/reporting.mjs](../scripts/pocs/lib/reporting.mjs)
+- [scripts/pocs/lib/slack.mjs](../scripts/pocs/lib/slack.mjs)
 
 ## Known Direction For Future Improvements
 
@@ -270,11 +315,11 @@ These changes were implemented during the latest `/reporting` iteration and shou
 The standalone reporting product now has panel-level processing overlays instead of relying only on button-label changes.
 
 Implemented in:
-- [src/components/processing-overlay.tsx](/Users/adi/my-weekender-project/src/components/processing-overlay.tsx)
-- [src/components/glass-panel.tsx](/Users/adi/my-weekender-project/src/components/glass-panel.tsx)
-- [src/components/standalone-reporting-flow.tsx](/Users/adi/my-weekender-project/src/components/standalone-reporting-flow.tsx)
-- [src/components/reporting-studio.tsx](/Users/adi/my-weekender-project/src/components/reporting-studio.tsx)
-- [src/app/globals.css](/Users/adi/my-weekender-project/src/app/globals.css)
+- [src/components/processing-overlay.tsx](../src/components/processing-overlay.tsx)
+- [src/components/glass-panel.tsx](../src/components/glass-panel.tsx)
+- [src/components/standalone-reporting-flow.tsx](../src/components/standalone-reporting-flow.tsx)
+- [src/components/reporting-studio.tsx](../src/components/reporting-studio.tsx)
+- [src/app/globals.css](../src/app/globals.css)
 
 Current behavior:
 - token loading uses a centered processing overlay inside the token panel
@@ -287,8 +332,8 @@ Current behavior:
 The reporting desk now supports both pasted context and uploaded text/markdown files.
 
 Implemented in:
-- [src/components/reporting-studio.tsx](/Users/adi/my-weekender-project/src/components/reporting-studio.tsx)
-- [src/app/globals.css](/Users/adi/my-weekender-project/src/app/globals.css)
+- [src/components/reporting-studio.tsx](../src/components/reporting-studio.tsx)
+- [src/app/globals.css](../src/app/globals.css)
 
 Current behavior:
 - upload button accepts `.txt`, `.md`, and `.markdown`
@@ -302,8 +347,8 @@ Current behavior:
 The final client-style message now includes a circular corner copy action.
 
 Implemented in:
-- [src/components/reporting-studio.tsx](/Users/adi/my-weekender-project/src/components/reporting-studio.tsx)
-- [src/app/globals.css](/Users/adi/my-weekender-project/src/app/globals.css)
+- [src/components/reporting-studio.tsx](../src/components/reporting-studio.tsx)
+- [src/app/globals.css](../src/app/globals.css)
 
 Current behavior:
 - the copy button sits in the top-right corner of the final message card

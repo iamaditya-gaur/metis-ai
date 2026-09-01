@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { BUDGET, estimateCallCostUsd } from "./config";
@@ -27,10 +27,26 @@ const EMPTY_STATE: BudgetState = {
 
 async function writePrivateJson(filePath: string, value: unknown) {
   await mkdir(path.dirname(filePath), { recursive: true, mode: 0o700 });
-  await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, {
+  const temporaryPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+  await writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, {
     encoding: "utf8",
     mode: 0o600,
   });
+  await rename(temporaryPath, filePath);
+}
+
+function isBudgetState(value: unknown): value is BudgetState {
+  if (!value || typeof value !== "object") return false;
+  const state = value as Partial<BudgetState>;
+  return (
+    typeof state.actualOrEstimatedUsd === "number" &&
+    Number.isFinite(state.actualOrEstimatedUsd) &&
+    state.actualOrEstimatedUsd >= 0 &&
+    typeof state.reservedUsd === "number" &&
+    Number.isFinite(state.reservedUsd) &&
+    state.reservedUsd >= 0 &&
+    Array.isArray(state.calls)
+  );
 }
 
 export class BudgetLedger {
@@ -40,8 +56,18 @@ export class BudgetLedger {
 
   async load() {
     try {
-      this.state = JSON.parse(await readFile(this.filePath, "utf8")) as BudgetState;
-    } catch {
+      const parsed = JSON.parse(await readFile(this.filePath, "utf8")) as unknown;
+      if (!isBudgetState(parsed)) {
+        throw new Error("Budget ledger has an invalid shape.");
+      }
+      this.state = parsed;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        throw new Error(
+          "Budget ledger could not be read safely. Restore it before making more model calls.",
+          { cause: error },
+        );
+      }
       this.state = structuredClone(EMPTY_STATE);
     }
     return this.snapshot();

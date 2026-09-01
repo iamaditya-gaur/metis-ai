@@ -10,17 +10,22 @@
     "test": "vitest run",
     "eval:reporting:fetch": "tsx evals/reporting-model-comparison/run.ts --phase fetch",
     "eval:reporting:screen": "tsx evals/reporting-model-comparison/run.ts --phase screen",
-    "eval:reporting:final": "tsx evals/reporting-model-comparison/run.ts --phase final"
+    "eval:reporting:final": "tsx evals/reporting-model-comparison/run.ts --phase final",
+    "eval:reporting:release": "tsx evals/reporting-model-comparison/run.ts --phase release",
+    "eval:reporting:release-recheck": "tsx evals/reporting-model-comparison/run.ts --phase release-recheck"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.104.0",
     "@tanstack/react-query": "^5.101.0",
-    "next": "16.2.4",
+    "next": "^16.3.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.80.0",
     "zod": "^4.4.3"
+  },
+  "overrides": {
+    "nanoid": "3.3.18"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -28,7 +33,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.4",
+    "eslint-config-next": "^16.3.4",
     "tailwindcss": "^4",
     "tsx": "^4.20.6",
     "typescript": "^5",

@@ -1,17 +1,27 @@
 # Metis AI — current agent handoff
 
-**Last updated:** 2026-07-18 (BYOK / bring-your-own-AI-key — built on branch `claude/byok-llm-keys-4407f4`, verified on preview, pending merge)
+**Last updated:** 2026-09-01 (reporting safety update on `codex/reporting-model-eval`; not merged or deployed)
 
 > Read this file once. Don't pre-load the other docs — they're listed in the "If you need to dig deeper" table at the bottom; open them only when the task at hand actually calls for it.
 
 ## Where things stand
 
-- **Branch:** `feat/foundation-and-shell` — fully merged into `main` (fast-forward) on 2026-06-22.
+- **Main:** includes the BYOK release from 2026-07-18.
+- **Active production-prep branch:** `codex/reporting-model-eval` — private evaluation harness, recipient guard, structured-output retry, post-rewrite judging, and dependency patches. Not merged or deployed.
 - **Production URL:** https://metis-ai-nine.vercel.app — live on the latest build.
 - **Repo + project:** GitHub `iamaditya-gaur/metis-ai`, single Vercel project, single linked Supabase project.
 - **Auth gate:** `/app/*` requires a Supabase session. `/admin/*` requires the admin password cookie. `/`, `/reporting`, `/login`, `/signup`, `/reset-password` are public.
 
-## BYOK — bring your own AI key (2026-07-18, branch `claude/byok-llm-keys-4407f4`, not yet merged)
+## Reporting safety update (2026-09-01, not yet merged)
+
+- **Model policy:** production defaults stay on GPT-5.4 Mini for summary and judges, and Claude Sonnet 4.6 for tone and composition. The Luna/Terra bundle failed final voice and fact rechecks and was not promoted.
+- **Recipient safety:** Meta's returned account name overrides browser and tone-example names. A deterministic final guard repairs the greeting before output or delivery.
+- **Structured output:** schema-bound calls retry once for empty, malformed, or incomplete JSON. Every attempt counts toward logged cost and latency.
+- **Private evaluation:** real Meta fixtures, tone samples, prompts, and model outputs remain under ignored `.private-evals/`; committed tests use generic accounts.
+- **Security maintenance:** Next.js and its ESLint config move to 16.3.4, with a narrow Nano ID override for the patched compatible release.
+- **Release gate:** merge only the safety changes after tests, lint, build, dependency audit, branch security review, and GitHub secret scan pass. Do not deploy from this branch.
+
+## BYOK — bring your own AI key (2026-07-18, merged in PR #8)
 
 - **What it is:** signed-in users connect their own AI key (OpenRouter one-click OAuth or OpenAI/OpenRouter paste) in Settings → *AI key*; authed report runs use *their* key. New RLS-scoped `llm_keys` table (migration `0010`, one row per user, AES-256-GCM via `token-encryption.ts`, last-4 display only).
 - **The seam:** every LLM call funnels through two `.mjs` functions (`requestOpenRouterJson` in `llm.mjs`, `generateOpenRouterReportSummary` in `reporting.mjs`). They now read a per-request `AsyncLocalStorage` context (`scripts/pocs/lib/llm-context.mjs`); the API route wraps `runReportingWorkflow` in `runWithLlmKey(...)`. **No context set → byte-identical env-var fallback**, so `src/lib/metis/*` was untouched and the anonymous `/reporting` demo is unchanged. Keep touched routes on the Node runtime (ALS needs it — no `export const runtime = "edge"`).
@@ -46,7 +56,7 @@ Round 4 already documented below. Subsequent rounds (June 21–22 sessions) adde
 
 ## Hard constraints (user has stated all of these explicitly)
 
-- **Do NOT touch `src/lib/metis/*`** — that's the reporting brain. Off-limits this whole branch.
+- **Preserve the reporting split.** Factual summary, tone extraction, composition, and judges remain separate steps; changes need focused tests and evaluation evidence.
 - **No long-lived Chromium sessions.** `mcp__Claude_Preview__*` + `next dev` + Turbopack ate 60+ GB RAM and crashed the user's machine. QA pattern: `npm run build`, `curl` the deployed preview, Supabase MCP for SQL, one-shot screenshots only (`preview_start → screenshot → preview_stop` in the same tool turn).
 - **`vercel env pull` writes empty strings for sensitive vars locally.** You can't fully test on `npm run dev`; test on the deployed preview (where the real envs live).
 - **`NEXT_PUBLIC_*` vars are baked at build time** — set them in Vercel for Production, Preview, AND Development before deploying. `/api/health` is the fastest way to confirm.

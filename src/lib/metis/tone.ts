@@ -13,6 +13,15 @@ import type {
   ToneProfile,
   VoiceMatchVerdict,
 } from "@/lib/metis/types";
+import {
+  ensureRecipientOpening,
+} from "@/lib/metis/recipient";
+import {
+  getCommunicatorModelCandidates,
+  getFactRegenerateThreshold,
+  getToneProfileModelCandidates,
+  getVoiceRegenerateThreshold,
+} from "@/lib/metis/model-policy";
 
 type ReportForToneRewrite = ReportingRunResponse["report"];
 type SnapshotForToneRewrite = ReportingRunResponse["snapshot"];
@@ -460,25 +469,6 @@ function formatStyleValue(
   }
 
   return compact;
-}
-
-function getCommunicatorModelCandidates() {
-  const explicit = process.env.OPENROUTER_CLIENT_MESSAGE_MODELS?.trim();
-
-  if (explicit) {
-    return explicit
-      .split(",")
-      .map((entry) => entry.trim())
-      .filter(Boolean);
-  }
-
-  const reportingDefault = process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-5.4-mini";
-
-  return [
-    "anthropic/claude-sonnet-4.7",
-    "anthropic/claude-sonnet-4.6",
-    reportingDefault,
-  ];
 }
 
 function getComposeTemperature() {
@@ -1432,7 +1422,13 @@ export type OpenRouterUsage = {
   latencyMs: number | null;
   attempts: Array<{
     model: string;
-    status: "success" | "http_error" | "empty_message" | "invalid_json";
+    attempt: number;
+    status:
+      | "success"
+      | "http_error"
+      | "empty_message"
+      | "invalid_json"
+      | "invalid_schema";
     httpStatus: number | null;
     latencyMs: number;
     errorMessage: string | null;
@@ -1445,6 +1441,12 @@ export type OpenRouterPrompts = {
   userMessage: string;
   responseRaw: string;
 };
+
+function usageFromOpenRouterError(error: unknown): OpenRouterUsage | null {
+  if (!error || typeof error !== "object" || !("usage" in error)) return null;
+  const usage = (error as { usage?: unknown }).usage;
+  return usage && typeof usage === "object" ? (usage as OpenRouterUsage) : null;
+}
 
 type RequestOpenRouterJsonResult = {
   model: string;
@@ -1501,10 +1503,17 @@ export async function buildToneProfile(
         examples: samples.slice(0, 6),
         heuristicProfile,
       },
-      models: options.models ?? getCommunicatorModelCandidates(),
+      models: options.models ?? getToneProfileModelCandidates(),
       temperature: getToneProfileTemperature(),
-      maxTokens: options.maxTokens,
-      timeoutMs: options.timeoutMs,
+      maxTokens: options.maxTokens ?? 700,
+      timeoutMs: options.timeoutMs ?? 45_000,
+      requiredKeys: ["sampleCount"],
+      validateData: (data: unknown) =>
+        Boolean(
+          data &&
+            typeof data === "object" &&
+            typeof (data as { sampleCount?: unknown }).sampleCount === "number",
+        ),
     })) as RequestOpenRouterJsonResult;
 
     return {
@@ -1513,8 +1522,13 @@ export async function buildToneProfile(
       usage: result.usage,
       prompts: result.prompts,
     };
-  } catch {
-    return { profile: heuristicProfile, model: null, usage: null, prompts: null };
+  } catch (error) {
+    return {
+      profile: heuristicProfile,
+      model: null,
+      usage: usageFromOpenRouterError(error),
+      prompts: null,
+    };
   }
 }
 
@@ -1635,6 +1649,7 @@ export async function composeClientMessage({
   toneProfile,
   critiqueFeedback,
   changesSummary,
+  recipientName,
   models,
   maxTokens,
   timeoutMs,
@@ -1645,6 +1660,7 @@ export async function composeClientMessage({
   toneProfile: ToneProfile;
   critiqueFeedback?: string[];
   changesSummary?: string | null;
+  recipientName?: string | null;
   models?: string[];
   maxTokens?: number;
   timeoutMs?: number;
@@ -1717,8 +1733,16 @@ ${trimmedChanges}
     userMessage,
     models: models ?? getCommunicatorModelCandidates(),
     temperature: getComposeTemperature(),
-    maxTokens,
-    timeoutMs,
+    maxTokens: maxTokens ?? 650,
+    timeoutMs: timeoutMs ?? 45_000,
+    requiredKeys: ["clientMessage"],
+    validateData: (data: unknown) =>
+      Boolean(
+        data &&
+          typeof data === "object" &&
+          typeof (data as { clientMessage?: unknown }).clientMessage === "string" &&
+          (data as { clientMessage: string }).clientMessage.trim(),
+      ),
   })) as RequestOpenRouterJsonResult;
 
   if (
@@ -1730,8 +1754,9 @@ ${trimmedChanges}
   }
 
   const raw = (result.data as { clientMessage: string }).clientMessage.trim();
+  const normalized = normalizeMessageNumericFormatting(raw, toneProfile, samples);
   return {
-    message: normalizeMessageNumericFormatting(raw, toneProfile, samples),
+    message: ensureRecipientOpening(normalized, recipientName).message,
     model: result.model,
     samples,
     usage: result.usage,
@@ -1750,14 +1775,6 @@ function getVoiceJudgeModelCandidates() {
   }
 
   return [process.env.OPENROUTER_MODEL?.trim() || "openai/gpt-5.4-mini"];
-}
-
-function getVoiceRegenerateThreshold() {
-  const configured = Number(process.env.METIS_TONE_REGENERATE_THRESHOLD ?? "");
-  // Default 8 (up from 7) — borderline voice mismatches like "spoke about
-  // CPP instead of ROAS" were scoring 6-7 and not triggering regen. 8 means
-  // anything below "would convincingly read as this author" regens once.
-  return Number.isFinite(configured) ? clamp(configured, 0, 10) : 8;
 }
 
 const VOICE_JUDGE_SYSTEM_PROMPT =
@@ -1817,8 +1834,16 @@ Score the candidate against the examples on voice only. Output JSON: {"score": 0
     userMessage,
     models: models ?? getVoiceJudgeModelCandidates(),
     temperature: 0,
-    maxTokens,
-    timeoutMs,
+    maxTokens: maxTokens ?? 280,
+    timeoutMs: timeoutMs ?? 45_000,
+    requiredKeys: ["score", "mismatches"],
+    validateData: (data: unknown) =>
+      Boolean(
+        data &&
+          typeof data === "object" &&
+          typeof (data as { score?: unknown }).score === "number" &&
+          Array.isArray((data as { mismatches?: unknown }).mismatches),
+      ),
   })) as RequestOpenRouterJsonResult;
 
   const data = result.data as { score?: unknown; mismatches?: unknown } | null;
@@ -1854,11 +1879,6 @@ function getFactJudgeModelCandidates() {
   // Default to the same cheap model the voice judge uses — they're both
   // tight, scoped reads of the candidate text.
   return getVoiceJudgeModelCandidates();
-}
-
-function getFactRegenerateThreshold() {
-  const configured = Number(process.env.METIS_FACT_REGENERATE_THRESHOLD ?? "");
-  return Number.isFinite(configured) ? clamp(configured, 0, 10) : 7;
 }
 
 /**
@@ -1918,8 +1938,16 @@ Audit the CANDIDATE against SOURCE_FACTS. Walk the 8 categories in the system pr
     userMessage,
     models: models ?? getFactJudgeModelCandidates(),
     temperature: 0,
-    maxTokens,
-    timeoutMs,
+    maxTokens: maxTokens ?? 320,
+    timeoutMs: timeoutMs ?? 45_000,
+    requiredKeys: ["score", "mismatches"],
+    validateData: (data: unknown) =>
+      Boolean(
+        data &&
+          typeof data === "object" &&
+          typeof (data as { score?: unknown }).score === "number" &&
+          Array.isArray((data as { mismatches?: unknown }).mismatches),
+      ),
   })) as RequestOpenRouterJsonResult;
 
   const data = result.data as { score?: unknown; mismatches?: unknown } | null;

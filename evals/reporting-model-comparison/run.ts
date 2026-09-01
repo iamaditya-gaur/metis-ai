@@ -1,5 +1,5 @@
 import { createHash, randomInt } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
@@ -164,6 +164,20 @@ function parseArgs(argv: string[]) {
 }
 
 async function ensurePrivateRoot() {
+  const relativeToRepo = path.relative(process.cwd(), PRIVATE_ROOT);
+  const isInsideRepo =
+    relativeToRepo === "" ||
+    (!relativeToRepo.startsWith(`..${path.sep}`) &&
+      relativeToRepo !== ".." &&
+      !path.isAbsolute(relativeToRepo));
+  const isIgnoredPrivateRoot =
+    relativeToRepo === ".private-evals" ||
+    relativeToRepo.startsWith(`.private-evals${path.sep}`);
+  if (isInsideRepo && !isIgnoredPrivateRoot) {
+    throw new Error(
+      "Private evaluations inside the repository must stay under the ignored .private-evals directory.",
+    );
+  }
   await mkdir(PRIVATE_ROOT, { recursive: true, mode: 0o700 });
 }
 
@@ -252,38 +266,19 @@ async function runCandidateTrials<T>({
 
 function buildSourceFacts({
   snapshot,
-  report,
   changesSummary,
 }: {
   snapshot: ReturnType<typeof buildInsightsSnapshot>;
-  report: {
-    executiveSummary: string;
-    whatChanged: string[];
-    risks: string[];
-    nextActions: string[];
-  };
   changesSummary: string | null;
 }) {
   const lines = [
     `Date range: ${snapshot.dateRange.label}`,
     `Row count: ${snapshot.rowCount}`,
-    `Executive summary: ${report.executiveSummary}`,
+    "Meta snapshot:",
+    JSON.stringify(snapshot),
   ];
-  if (report.whatChanged.length) {
-    lines.push("What changed:", ...report.whatChanged.map((item) => `- ${item}`));
-  }
-  if (report.risks.length) {
-    lines.push("Risks:", ...report.risks.map((item) => `- ${item}`));
-  }
-  if (report.nextActions.length) {
-    lines.push("Next actions:", ...report.nextActions.map((item) => `- ${item}`));
-  }
   if (changesSummary) {
     lines.push("CHANGES:", changesSummary);
-  }
-  lines.push("Totals:");
-  for (const [key, value] of Object.entries(snapshot.totals)) {
-    if (value !== null && typeof value !== "object") lines.push(`- ${key}: ${value}`);
   }
   return lines.join("\n");
 }
@@ -611,6 +606,7 @@ async function screenCompose({
   changesSummary,
   canonicalActivities,
   expectedRecipient,
+  accountName,
 }: {
   candidate: ModelCandidate;
   ledger: BudgetLedger;
@@ -621,6 +617,7 @@ async function screenCompose({
   changesSummary: string | null;
   canonicalActivities: CanonicalActivity[];
   expectedRecipient: string;
+  accountName: string;
 }) {
   return runCandidateTrials({
     candidate,
@@ -641,6 +638,7 @@ async function screenCompose({
               toneExamples: toneContext,
               toneProfile,
               changesSummary,
+              recipientName: accountName,
               models: candidate.models,
               maxTokens: 650,
               timeoutMs: EVAL_CALL_TIMEOUT_MS,
@@ -648,7 +646,7 @@ async function screenCompose({
         });
         const checks = checkGeneratedMessage({
           message: result.message,
-          sourceData: { snapshot, report, changesSummary },
+          sourceData: { snapshot, changesSummary },
           canonicalActivities,
           dateRange: snapshot.dateRange,
           expectedRecipient,
@@ -1018,6 +1016,7 @@ async function runScreening(args: Record<string, string | boolean>) {
         changesSummary,
         canonicalActivities,
         expectedRecipient: fixture.expectedRecipient,
+        accountName: fixture.accountName,
       }),
     );
     await writePrivateJson(SCREENING_PROGRESS_PATH, {
@@ -1032,7 +1031,6 @@ async function runScreening(args: Record<string, string | boolean>) {
 
   const sourceFacts = buildSourceFacts({
     snapshot,
-    report: baselineSummary,
     changesSummary,
   });
   const judges: AnyScreen[] = [];
@@ -1127,7 +1125,7 @@ async function recheckScreening() {
       if (!message) continue;
       trial.checks = checkGeneratedMessage({
         message,
-        sourceData: { snapshot, report: baselineSummary, changesSummary },
+        sourceData: { snapshot, changesSummary },
         canonicalActivities,
         dateRange: snapshot.dateRange,
         expectedRecipient: fixture.expectedRecipient,
@@ -1169,7 +1167,6 @@ async function rerunJudgeFinalists() {
   const changesSummary = activityResult.summary || null;
   const sourceFacts = buildSourceFacts({
     snapshot,
-    report: baselineSummary,
     changesSummary,
   });
   const spend = snapshot.totals.spend ?? 0;
@@ -1301,6 +1298,7 @@ async function runBundleTrial({
           toneExamples: toneContext,
           toneProfile: tone.profile,
           changesSummary,
+          recipientName: fixture.accountName,
           models: bundle.compose.models,
           maxTokens: 650,
           timeoutMs: EVAL_CALL_TIMEOUT_MS,
@@ -1310,10 +1308,9 @@ async function runBundleTrial({
 
     const sourceFacts = buildSourceFacts({
       snapshot,
-      report: summary.report,
       changesSummary,
     });
-    const voice = await tracked({
+    let voice = await tracked({
       ledger,
       stage: `bundle-${bundle.id}-voice`,
       candidate: bundle.voice,
@@ -1329,7 +1326,7 @@ async function runBundleTrial({
         }),
     });
     calls.push({ step: "voice", model: voice.model, usage: voice.usage });
-    const fact = await tracked({
+    let fact = await tracked({
       ledger,
       stage: `bundle-${bundle.id}-fact`,
       candidate: bundle.fact,
@@ -1373,6 +1370,7 @@ async function runBundleTrial({
             toneExamples: toneContext,
             toneProfile: tone.profile,
             changesSummary,
+            recipientName: fixture.accountName,
             critiqueFeedback: critique,
             models: bundle.compose.models,
             maxTokens: 650,
@@ -1380,18 +1378,52 @@ async function runBundleTrial({
           }),
       });
       calls.push({ step: "regenerate", model: composed.model, usage: composed.usage });
+
+      voice = await tracked({
+        ledger,
+        stage: `bundle-${bundle.id}-voice-recheck`,
+        candidate: bundle.voice,
+        inputCharacters: composed.samples.join("\n").length + composed.message.length,
+        maxOutputTokens: 280,
+        run: () =>
+          gradeVoiceMatch({
+            clientMessage: composed.message,
+            samples: composed.samples,
+            models: bundle.voice.models,
+            maxTokens: 280,
+            timeoutMs: EVAL_CALL_TIMEOUT_MS,
+          }),
+      });
+      calls.push({ step: "voice-recheck", model: voice.model, usage: voice.usage });
+
+      fact = await tracked({
+        ledger,
+        stage: `bundle-${bundle.id}-fact-recheck`,
+        candidate: bundle.fact,
+        inputCharacters: sourceFacts.length + composed.message.length,
+        maxOutputTokens: 320,
+        run: () =>
+          gradeFactMatch({
+            clientMessage: composed.message,
+            sourceFacts,
+            models: bundle.fact.models,
+            maxTokens: 320,
+            timeoutMs: EVAL_CALL_TIMEOUT_MS,
+          }),
+      });
+      calls.push({ step: "fact-recheck", model: fact.model, usage: fact.usage });
     }
 
     const checks = checkGeneratedMessage({
       message: composed.message,
-      sourceData: { snapshot, report: summary.report, changesSummary },
+      sourceData: { snapshot, changesSummary },
       canonicalActivities,
       dateRange: snapshot.dateRange,
       expectedRecipient: fixture.expectedRecipient,
     });
     return {
       trial,
-      pass: allChecksPass(checks),
+      pass: allChecksPass(checks) && voice.score >= 8 && fact.score >= 7,
       output: {
         message: composed.message,
         report: summary.report,
@@ -1536,6 +1568,168 @@ async function runFinal(args: Record<string, string | boolean>) {
   );
 }
 
+async function runReleaseCandidate() {
+  const screening = await readJson<ScreeningPayload>(LATEST_SCREENING_PATH);
+  const fixture = await readFixture();
+  const toneContext = await readFile(TONE_PATH, "utf8");
+  const ledger = new BudgetLedger(BUDGET_PATH);
+  await ledger.load();
+
+  const requirePassing = (screens: AnyScreen[], id: string) => {
+    const screen = screens.find((candidate) => candidate.candidate.id === id);
+    if (!screen?.consistentPass) {
+      throw new Error(`Release candidate blocked because ${id} did not pass three trials.`);
+    }
+    return screen.candidate;
+  };
+
+  const bundle = {
+    id: "reporting-release-candidate",
+    label: "Reporting release candidate",
+    summary: requirePassing(screening.summary, "summary-current"),
+    tone: requirePassing(screening.tone, "tone-luna"),
+    compose: requirePassing(screening.compose, "compose-terra"),
+    voice: requirePassing(screening.judges, "judge-current"),
+    fact: requirePassing(screening.judges, "judge-current"),
+  };
+
+  console.log(
+    `Running up to three integrated release-candidate trials. Current tracked spend is $${ledger.snapshot().actualOrEstimatedUsd.toFixed(6)}; the $${BUDGET.hardLimitUsd.toFixed(2)} hard stop remains active before every call.`,
+  );
+  const trials = [
+    await runBundleTrial({ bundle, trial: 1, fixture, toneContext, ledger }),
+  ];
+  if (trials[0].pass) {
+    trials.push(await runBundleTrial({ bundle, trial: 2, fixture, toneContext, ledger }));
+    trials.push(await runBundleTrial({ bundle, trial: 3, fixture, toneContext, ledger }));
+  }
+
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    bundle,
+    trials,
+    consistentPass: trials.length === 3 && trials.every((trial) => trial.pass),
+    budget: ledger.snapshot(),
+  };
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const resultsPath = path.join(PRIVATE_ROOT, `release-candidate-${timestamp}.json`);
+  await writePrivateJson(resultsPath, payload);
+  console.log(`Release-candidate results: ${resultsPath}`);
+  console.log(
+    `Result: ${payload.consistentPass ? "PASS" : "FAIL"}. Tracked spend: $${payload.budget.actualOrEstimatedUsd.toFixed(6)}; remaining hard-limit room: $${payload.budget.remainingUsd.toFixed(6)}.`,
+  );
+}
+
+async function latestReleaseCandidatePath() {
+  const candidates = (await readdir(PRIVATE_ROOT))
+    .filter((name) => /^release-candidate-.*\.json$/.test(name))
+    .sort();
+  const latest = candidates.at(-1);
+  if (!latest) throw new Error("No private release-candidate result was found.");
+  return path.join(PRIVATE_ROOT, latest);
+}
+
+async function recheckLatestReleaseCandidate() {
+  const sourcePath = await latestReleaseCandidatePath();
+  const source = await readJson<{
+    bundle: {
+      voice: ModelCandidate;
+      fact: ModelCandidate;
+    };
+    trials: Array<{
+      trial: number;
+      pass: boolean;
+      output: { message: string; report: GeneratedReport } | null;
+    }>;
+  }>(sourcePath);
+  const fixture = await readFixture();
+  const toneContext = await readFile(TONE_PATH, "utf8");
+  const samples = splitToneExamples(toneContext).slice(0, 8);
+  const snapshot = buildInsightsSnapshot(fixture.rows, fixture.dateRange);
+  const activityResult = buildCanonicalActivities(
+    fixture.activities as ActivityRecord[],
+  );
+  const changesSummary = activityResult.summary || null;
+  const ledger = new BudgetLedger(BUDGET_PATH);
+  await ledger.load();
+
+  const results = [];
+  for (const trial of source.trials) {
+    const output = trial.output;
+    if (!output) {
+      results.push({ trial: trial.trial, pass: false, error: "No output to recheck." });
+      continue;
+    }
+    const sourceFacts = buildSourceFacts({
+      snapshot,
+      changesSummary,
+    });
+    try {
+      const voice = await tracked({
+        ledger,
+        stage: "release-recheck-voice",
+        candidate: source.bundle.voice,
+        inputCharacters: samples.join("\n").length + output.message.length,
+        maxOutputTokens: 280,
+        run: () =>
+          gradeVoiceMatch({
+            clientMessage: output.message,
+            samples,
+            models: source.bundle.voice.models,
+            maxTokens: 280,
+            timeoutMs: EVAL_CALL_TIMEOUT_MS,
+          }),
+      });
+      const fact = await tracked({
+        ledger,
+        stage: "release-recheck-fact",
+        candidate: source.bundle.fact,
+        inputCharacters: sourceFacts.length + output.message.length,
+        maxOutputTokens: 320,
+        run: () =>
+          gradeFactMatch({
+            clientMessage: output.message,
+            sourceFacts,
+            models: source.bundle.fact.models,
+            maxTokens: 320,
+            timeoutMs: EVAL_CALL_TIMEOUT_MS,
+          }),
+      });
+      results.push({
+        trial: trial.trial,
+        pass: trial.pass && voice.score >= 8 && fact.score >= 7,
+        voiceScore: voice.score,
+        voiceMismatchCount: voice.mismatches.length,
+        factScore: fact.score,
+        factMismatchCount: fact.mismatches.length,
+        costUsd: (voice.usage?.costUsd ?? 0) + (fact.usage?.costUsd ?? 0),
+        error: null,
+      });
+    } catch (error) {
+      results.push({
+        trial: trial.trial,
+        pass: false,
+        error: errorMessage(error),
+      });
+    }
+  }
+
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    sourceFile: path.basename(sourcePath),
+    results,
+    consistentPass: results.length === 3 && results.every((result) => result.pass),
+    budget: ledger.snapshot(),
+  };
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const resultsPath = path.join(PRIVATE_ROOT, `release-recheck-${timestamp}.json`);
+  await writePrivateJson(resultsPath, payload);
+  console.log(`Release recheck: ${resultsPath}`);
+  console.log(
+    `Result: ${payload.consistentPass ? "PASS" : "FAIL"}. Tracked spend: $${payload.budget.actualOrEstimatedUsd.toFixed(6)}.`,
+  );
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const phase = String(args.phase ?? "");
@@ -1560,8 +1754,16 @@ async function main() {
     await runFinal(args);
     return;
   }
+  if (phase === "release") {
+    await runReleaseCandidate();
+    return;
+  }
+  if (phase === "release-recheck") {
+    await recheckLatestReleaseCandidate();
+    return;
+  }
   throw new Error(
-    "Use --phase fetch, --phase screen, --phase recheck, --phase judge-finalists, or --phase final.",
+    "Use --phase fetch, --phase screen, --phase recheck, --phase judge-finalists, --phase final, --phase release, or --phase release-recheck.",
   );
 }
 

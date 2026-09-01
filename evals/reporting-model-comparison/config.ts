@@ -17,7 +17,6 @@ export const BUDGET = {
 } as const;
 
 export const CURRENT_COMMUNICATOR_MODELS = [
-  "anthropic/claude-sonnet-4.7",
   "anthropic/claude-sonnet-4.6",
   "openai/gpt-5.4-mini",
 ];
@@ -124,7 +123,6 @@ export const MODEL_PRICES_USD_PER_MILLION: Record<string, Price> = {
   "openai/gpt-5.4-mini": { input: 0.75, output: 4.5 },
   "openai/gpt-5.6-luna": { input: 0.2, output: 1.2 },
   "openai/gpt-5.6-terra": { input: 2, output: 12 },
-  "anthropic/claude-sonnet-4.7": { input: 3, output: 15 },
   "anthropic/claude-sonnet-4.6": { input: 3, output: 15 },
   "anthropic/claude-sonnet-5": { input: 2, output: 10 },
   "deepseek/deepseek-v4-flash-0731": { input: 0.065, output: 0.18 },

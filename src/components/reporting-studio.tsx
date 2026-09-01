@@ -500,8 +500,10 @@ export function ReportingStudio({
       return;
     }
 
+    const selectedAccount = accounts.find((account) => account.id === accountId);
     const payload: ReportingRunRequest & { connectionId?: string } = {
       accountId,
+      accountName: selectedAccount?.name ?? selectedAccount?.label ?? null,
       dateStart,
       dateEnd,
       toneExamples,

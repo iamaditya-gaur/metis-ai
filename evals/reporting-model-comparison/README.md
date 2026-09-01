@@ -39,6 +39,44 @@ node --env-file=/path/to/private/.env.local ./node_modules/tsx/dist/cli.mjs \
   --compose-winner A
 ```
 
+For a monthly run, use a separate ignored directory so weekly evidence remains
+unchanged:
+
+```bash
+METIS_EVAL_PRIVATE_DIR=.private-evals/reporting-model-comparison-monthly \
+node --env-file=/path/to/private/.env.local ./node_modules/tsx/dist/cli.mjs \
+  evals/reporting-model-comparison/run.ts \
+  --phase fetch \
+  --from 2026-08-01 \
+  --to 2026-08-31 \
+  --tone-file '/path/to/private-tone-context.txt'
+
+METIS_EVAL_PRIVATE_DIR=.private-evals/reporting-model-comparison-monthly \
+node --env-file=/path/to/private/.env.local ./node_modules/tsx/dist/cli.mjs \
+  evals/reporting-model-comparison/run.ts \
+  --phase screen \
+  --scope finalists
+```
+
+The fixture stores the Meta-returned account name privately and derives the
+required recipient from it. Do not pass a client name in command arguments or
+add one to committed tests.
+
+After the selected summary, tone, compose, and judge candidates each pass three
+screening runs, test their exact production bundle end to end:
+
+```bash
+METIS_EVAL_PRIVATE_DIR=.private-evals/reporting-model-comparison-monthly \
+node --env-file=/path/to/private/.env.local ./node_modules/tsx/dist/cli.mjs \
+  evals/reporting-model-comparison/run.ts --phase release
+```
+
+The release phase stops after the first failed run. It never tests rejected
+bundles, which keeps spend focused on the intended production configuration.
+If a message is rewritten, the voice and fact judges score the rewritten text
+again. The `release-recheck` phase applies that final judge check to an earlier
+private release result without rerunning the more expensive generation steps.
+
 ## Spending rules
 
 - Target: under $1 total

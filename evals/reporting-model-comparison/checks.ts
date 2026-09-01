@@ -3,18 +3,37 @@ import type { CanonicalActivity } from "../../src/lib/metis/tone";
 
 const NUMBER_PATTERN = /\$?\d[\d,]*(?:\.\d+)?(?:\s?[kKmM](?![A-Za-z]))?%?/g;
 
-function flattenNumbers(value: unknown, output: number[] = []) {
+type NumberKind = "currency" | "percent" | "plain";
+type GroundedNumber = { value: number; kind: NumberKind };
+
+function numberKind(token: string, fieldName = ""): NumberKind {
+  if (token.trim().startsWith("$")) return "currency";
+  if (token.trim().endsWith("%")) return "percent";
+  if (/^(spend|cpm|cpc|costperresult|aov|purchasevalue|budget|amount)$/i.test(fieldName)) {
+    return "currency";
+  }
+  if (/^(ctr|percentage|percent|rate)$/i.test(fieldName)) return "percent";
+  return "plain";
+}
+
+function flattenNumbers(
+  value: unknown,
+  output: GroundedNumber[] = [],
+  fieldName = "",
+) {
   if (typeof value === "number" && Number.isFinite(value)) {
-    output.push(value);
+    output.push({ value, kind: numberKind(String(value), fieldName) });
   } else if (typeof value === "string") {
     for (const token of value.match(NUMBER_PATTERN) ?? []) {
       const parsed = parseNumberToken(token);
-      if (parsed !== null) output.push(parsed);
+      if (parsed !== null) {
+        output.push({ value: parsed, kind: numberKind(token, fieldName) });
+      }
     }
   } else if (Array.isArray(value)) {
-    for (const item of value) flattenNumbers(item, output);
+    for (const item of value) flattenNumbers(item, output, fieldName);
   } else if (value && typeof value === "object") {
-    for (const item of Object.values(value)) flattenNumbers(item, output);
+    for (const [key, item] of Object.entries(value)) flattenNumbers(item, output, key);
   }
   return output;
 }
@@ -27,15 +46,18 @@ function parseNumberToken(token: string) {
   return Number.isFinite(numeric) ? numeric * multiplier : null;
 }
 
-function isSupportedNumber(candidate: number, sourceValues: number[]) {
-  if ([7, 24, 30, 2026].includes(candidate)) return true;
+function isSupportedNumber(candidate: GroundedNumber, sourceValues: GroundedNumber[]) {
+  if (candidate.kind === "plain" && [7, 24, 30, 2026].includes(candidate.value)) {
+    return true;
+  }
   return sourceValues.some((source) => {
-    const absoluteDifference = Math.abs(source - candidate);
-    const relativeDifference = absoluteDifference / Math.max(1, Math.abs(source));
+    if (source.kind !== candidate.kind) return false;
+    const absoluteDifference = Math.abs(source.value - candidate.value);
+    const relativeDifference = absoluteDifference / Math.max(1, Math.abs(source.value));
     return (
       absoluteDifference <= 0.11 ||
       relativeDifference <= 0.02 ||
-      Math.round(source) === Math.round(candidate)
+      Math.round(source.value) === Math.round(candidate.value)
     );
   });
 }
@@ -62,12 +84,16 @@ export function checkGeneratedMessage({
   const normalized = message.trim();
   const sourceValues = flattenNumbers(sourceData);
   const unsupportedNumbers = (normalized.match(NUMBER_PATTERN) ?? [])
-    .map((token) => ({ token, value: parseNumberToken(token) }))
+    .map((token) => ({
+      token,
+      value: parseNumberToken(token),
+      kind: numberKind(token),
+    }))
     .filter(
-      (entry): entry is { token: string; value: number } =>
-        entry.value !== null && !isSupportedNumber(entry.value, sourceValues),
+      (entry): entry is { token: string; value: number; kind: NumberKind } =>
+        entry.value !== null &&
+        !isSupportedNumber({ value: entry.value, kind: entry.kind }, sourceValues),
     );
-  const lower = normalized.toLowerCase();
   const expectedRecipientNormalized = expectedRecipient?.trim().toLowerCase() || null;
   const greetingRecipient = normalized
     .match(/^(?:hey|hi)\s+(@[^,\n]{1,80})\s*,?/i)?.[1]

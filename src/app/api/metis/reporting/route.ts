@@ -19,6 +19,7 @@ export async function POST(request: Request) {
 
   const payload: ReportingRunRequest = {
     accountId: body.accountId,
+    accountName: body.accountName,
     dateStart: body.dateStart,
     dateEnd: body.dateEnd,
     toneExamples: body.toneExamples,

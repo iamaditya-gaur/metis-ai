@@ -6,7 +6,9 @@ export function normalizeAccountDisplayName(value: unknown): string | null {
   const normalized = value
     .normalize("NFKC")
     .replace(/[\u0000-\u001f\u007f]/g, " ")
-    .replace(/[<>]/g, "")
+    // Account names enter LLM prompts and Slack markdown. Keep letters,
+    // numbers, and ordinary business-name punctuation only.
+    .replace(/[^\p{L}\p{N}\s&.'()_-]/gu, "")
     .replace(/\s+/g, " ")
     .trim()
     .replace(/^@+/, "")
@@ -46,13 +48,22 @@ export function ensureRecipientOpening(message: string, accountName: unknown) {
     return { message: normalizedMessage, recipient, changed: false };
   }
 
-  const greetingWithComma = normalizedMessage.match(/^(?:hey|hi)\b[^,\n]{0,80},\s*/i);
-  const body = greetingWithComma
-    ? normalizedMessage.slice(greetingWithComma[0].length).trimStart()
+  const openingGreeting = normalizedMessage.match(
+    /^(?:hey|hi)\b[^\n]{0,80}(?:[,!:;]\s*|\n+)/i,
+  );
+  const body = openingGreeting
+    ? normalizedMessage.slice(openingGreeting[0].length).trimStart()
     : normalizedMessage;
   const repaired = body
     ? `Hey ${recipient},\n\n${body}`
     : `Hey ${recipient},`;
 
   return { message: repaired, recipient, changed: true };
+}
+
+export function redactGreetingRecipient(message: string) {
+  return message.replace(
+    /^(hey|hi)\s+@?[^,\n!:;]{1,80}[,!:;]?/i,
+    "$1 @recipient,",
+  );
 }
