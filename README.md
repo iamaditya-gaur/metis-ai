@@ -75,7 +75,7 @@ Two things worth knowing about the back-and-forth:
 | Client message | GPT-5.6 Terra | Claude Sonnet 4.6, then GPT-5.4 Mini |
 | Voice and fact checks | GPT-5.4 Mini | — |
 
-These are model preferences, not provider changes. Signed-in reporting still uses each user's connected OpenRouter or OpenAI key. Operators can override either model chain through environment variables without changing the workflow.
+These are model preferences, not provider changes. Signed-in reporting still uses each user's connected OpenRouter or OpenAI key. Either model chain can be overridden through environment variables without changing the workflow.
 
 ### What I Tightened Recently
 

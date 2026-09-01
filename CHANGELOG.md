@@ -7,6 +7,33 @@ deployed continuously. Each entry is dated and tagged with its PR.
 
 ---
 
+## 2026-09-01 — Reporting model defaults
+
+**Branch:** `codex/reporting-model-defaults`.
+
+### What changed
+
+- **Tone extraction now prefers GPT-5.6 Luna.** Claude Sonnet 4.6 and the
+  reporting default remain ordered fallbacks.
+- **Client-message writing now prefers GPT-5.6 Terra.** Claude Sonnet 4.6 and
+  the reporting default remain ordered fallbacks.
+- **Factual summaries and voice/fact checks stay on GPT-5.4 Mini.** Their
+  prompts and workflow are unchanged.
+- **BYOK stays intact.** Signed-in runs still use each user's connected
+  OpenRouter or OpenAI key. No provider, key-storage, API, Slack, database, or
+  delivery behavior changed.
+- **Private evaluation data stays private.** No brand data, tone examples,
+  credentials, or generated evaluation outputs are committed.
+
+### Verification
+
+- Model-policy and live-step wiring tests cover the default chains, overrides,
+  fallbacks, empty values, and duplicate removal without making paid API calls.
+- Full tests, lint, TypeScript checks, production build, and committed-diff
+  privacy checks pass.
+
+---
+
 ## 2026-07-18 — Bring your own AI key (BYOK)
 
 **Branch:** `claude/byok-llm-keys-4407f4`.

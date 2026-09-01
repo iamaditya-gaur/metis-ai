@@ -1,6 +1,6 @@
 # Reporting Context
 
-Last updated: 2026-04-26
+Last updated: 2026-09-01
 
 ## Purpose
 
@@ -134,6 +134,21 @@ Current logic:
 - choose the primary result using objective-aware logic
 - for `OUTCOME_SALES`, prefer purchase-type actions over noisy high-volume actions like `page_engagement`
 
+### 7. Reporting model policy
+
+The model update changes preferences only. It does not change providers, user
+keys, prompts, APIs, or the reporting workflow.
+
+| Step | Preferred model | Fallbacks |
+|---|---|---|
+| Factual summary | GPT-5.4 Mini | — |
+| Tone extraction | GPT-5.6 Luna | Claude Sonnet 4.6, then GPT-5.4 Mini |
+| Client message | GPT-5.6 Terra | Claude Sonnet 4.6, then GPT-5.4 Mini |
+| Voice and fact checks | GPT-5.4 Mini | — |
+
+The workflow-specific chains live in `src/lib/metis/model-policy.ts`. Optional
+environment overrides are documented in `.env.local.example`.
+
 ## Current Routes And APIs
 
 ### Standalone route
@@ -238,7 +253,8 @@ The standalone route depends on more than just the user token input.
 Future agents should remember:
 
 - Meta account fetch for `/reporting` can use the user-supplied access token
-- reporting generation still requires `OPENROUTER_API_KEY`
+- signed-in reporting generation uses the user's connected OpenRouter or OpenAI key
+- the public `/reporting` demo still requires the app's `OPENROUTER_API_KEY`
 - reporting delivery still requires `SLACK_WEBHOOK_URL`
 - Meta client behavior may also use `META_APP_SECRET` if app secret proof is configured
 
