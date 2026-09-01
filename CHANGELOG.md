@@ -7,6 +7,42 @@ deployed continuously. Each entry is dated and tagged with its PR.
 
 ---
 
+## Unreleased — Reporting model reliability
+
+**Branch:** `codex/reporting-model-eval`.
+
+### Production-prep changes
+
+- Keeps production model defaults unchanged after the newer-model bundle failed
+  the final voice and fact recheck. Model choices remain environment-configurable
+  for future private evaluations.
+- Uses Meta's account name as the recipient source and deterministically repairs
+  missing, generic, or wrong greetings before output, logging, or Slack delivery.
+- Retries signed-in and evaluation schema-bound LLM calls once for empty,
+  malformed, or incomplete JSON, while counting every attempt in cost and
+  latency totals. Anonymous shared-key runs do not multiply calls by default.
+- Re-runs voice and fact judges after a rewritten message; a completed rejection
+  falls back to the factual operator summary instead of being delivered.
+- Blocks anonymous Slack delivery, removes the public environment-backed account
+  list, protects detailed setup status, and reduces the public health response to
+  a single ready/not-ready value.
+- Keeps real evaluation data, tone samples, prompts, and outputs in the ignored
+  private evaluation directory. Public tests and docs contain generic examples.
+- Upgrades Next.js and its ESLint config to 16.3.4 and pins the patched compatible
+  Nano ID release identified by the dependency audit.
+- Adds a least-privilege pull-request check for tests, lint, the production build,
+  npm audit, and dependency review using immutable official action commits.
+
+### Verification before merge
+
+- Monthly private evaluation: the proposed newer-model bundle was withheld after
+  its final recheck failed voice in three runs and facts in one run.
+- Tests, lint, production build, dependency audit, branch security review, and
+  GitHub secret scan are required for the safety-only pull request.
+- No production deployment or environment change from this branch.
+
+---
+
 ## 2026-07-18 — Bring your own AI key (BYOK)
 
 **Branch:** `claude/byok-llm-keys-4407f4`.

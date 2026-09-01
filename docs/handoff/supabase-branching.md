@@ -16,7 +16,7 @@ The Metis AI repo (`iamaditya-gaur/metis-ai`, deployed at `https://metis-ai-nine
 - **Observability layer** (merged): captures per-LLM-call model + tokens + cost + latency + raw prompts/responses for every reporting/builder run; persists to `public.metis_runs` Supabase table; replaces the prior ephemeral `/tmp/.jsonl` log writes that were getting wiped between Vercel cold starts.
 - **Admin trace UI** (merged): `/admin/runs` + `/admin/runs/[runId]` gated by `/admin/login` (password in `METIS_ADMIN_PASSWORD` env var, signed cookie). Replaces the legacy public `/app/runs` page.
 
-Reference plan file (full history): `/Users/adi/.claude/plans/good-starting-point-now-inherited-snail.md` — see Phases 3 and 4.
+The current repository files and provider dashboards are the source of truth.
 
 ## Current security posture (problem statement)
 
@@ -54,10 +54,10 @@ Branching requires the **Pro** plan or higher. The Free tier does not include it
 
 ```bash
 # Use the supabase MCP if available:
-# mcp__supabase__get_project_url  → confirms project_ref rzomdapylhcsphwbfecp
+# Use the Supabase connector to confirm the linked project without printing its reference.
 ```
 
-Or visit https://supabase.com/dashboard/project/rzomdapylhcsphwbfecp/settings/general and check the plan in the Subscription section.
+Or open the linked project in the Supabase dashboard and check its plan in the Subscription section.
 
 **If the user is on Free tier**: stop and tell them. Don't auto-upgrade — that costs money. Surface the cost and the alternatives:
 - **Upgrade to Pro** (~$25/month) to enable Branching.
@@ -67,7 +67,7 @@ Or visit https://supabase.com/dashboard/project/rzomdapylhcsphwbfecp/settings/ge
 ### 2. Enable Branching in the Supabase dashboard
 
 Once on Pro:
-1. Go to https://supabase.com/dashboard/project/rzomdapylhcsphwbfecp/branches
+1. Open the linked project in the Supabase dashboard, then choose **Branches**.
 2. Click "Enable Branching"
 3. Follow the GitHub integration flow — it will ask to connect the `iamaditya-gaur/metis-ai` repo.
 4. Configure the branch naming rule (default: branch name from git becomes the Supabase branch name).
@@ -76,7 +76,7 @@ Once on Pro:
 
 The integration is already installed (see Phase 2/3 of the main plan file). It needs to be told to use Branching mode:
 
-1. Go to https://vercel.com/iamaditya-gaurs-projects/metis-ai/integrations
+1. Open the Metis project in the Vercel dashboard, then choose **Integrations**.
 2. Click into the Supabase integration → Settings.
 3. Enable "Use Branching for preview deployments."
 4. Save. The integration will start swapping `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` per preview deploy automatically.
@@ -101,7 +101,7 @@ If those checks pass, Branching is working. If the count increased on production
 ### 5. Document the new topology
 
 Update `docs/reporting-context.md` (currently mentions Supabase as a single-project setup) to reflect:
-- Production project: `rzomdapylhcsphwbfecp`
+- Production: the linked Supabase project; keep its reference out of committed docs
 - Every branch: auto-created branch DB
 - How to apply schema migrations going forward (Supabase Branching propagates schema from `main` to branch DBs)
 
@@ -162,4 +162,4 @@ The observability layer that just shipped writes user data (Meta ad account perf
 
 ---
 
-_Generated automatically as part of the Phase 5 merge work. If anything here is outdated by the time you read it, prefer the actual repo state and the plan file at `/Users/adi/.claude/plans/good-starting-point-now-inherited-snail.md`._
+_If anything here is outdated, prefer the current repository state and provider dashboards._

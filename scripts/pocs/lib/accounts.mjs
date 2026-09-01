@@ -1,7 +1,7 @@
 import { normalizeAdAccountId } from "./meta-client.mjs";
 
 export const ACCOUNT_LABELS = {
-  reporting: "CB",
+  reporting: "Reporting default",
   draft: "Adi personal",
 };
 

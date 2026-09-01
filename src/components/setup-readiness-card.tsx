@@ -16,7 +16,7 @@ export function SetupReadinessCard({ readiness }: SetupReadinessCardProps) {
     {
       label: "Reporting account",
       ready: readiness.reportingAccountReady,
-      copy: "Default stays pinned to CB for reporting until a deliberate change is made.",
+      copy: "The configured reporting account stays the default until deliberately changed.",
     },
     {
       label: "Draft account",

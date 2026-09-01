@@ -4,21 +4,6 @@ import { getAccessibleAccounts } from "@/lib/metis/accounts";
 import { createClient } from "@/lib/supabase/server";
 import { decryptSecretFromBase64 } from "@/lib/crypto/token-encryption";
 
-export async function GET() {
-  try {
-    const accounts = await getAccessibleAccounts();
-    return NextResponse.json({ accounts });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        message:
-          error instanceof Error ? error.message : "Could not load accessible Meta accounts.",
-      },
-      { status: 500 },
-    );
-  }
-}
-
 type Body = {
   accessToken?: string;
   connectionId?: string;

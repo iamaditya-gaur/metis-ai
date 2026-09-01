@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 
 /**
- * Cheap server-side env presence probe. Returns ONLY booleans — no values
- * are leaked. Used to verify a deployment has all required env vars without
- * having to drive a real flow through the UI.
+ * Cheap server-side readiness probe. Public callers receive one aggregate
+ * boolean only; individual environment names and platform metadata stay
+ * private.
  *
- * Usage: `curl https://<deploy>/api/health` and check every value is true.
+ * Usage: `curl https://<deploy>/api/health` and check `ok` is true.
  */
 export const dynamic = "force-dynamic";
 
@@ -37,14 +37,7 @@ export async function GET() {
   }
   const allPresent = Object.values(env).every(Boolean);
   return NextResponse.json(
-    {
-      ok: allPresent,
-      env,
-      vercel: {
-        env: process.env.VERCEL_ENV ?? null,
-        url: process.env.VERCEL_URL ?? null,
-      },
-    },
+    { ok: allPresent },
     { status: allPresent ? 200 : 503 },
   );
 }

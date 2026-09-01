@@ -35,6 +35,11 @@ import type {
   ReportingRunRequest,
   ReportingRunResponse,
 } from "@/lib/metis/types";
+import {
+  ensureRecipientOpening,
+  redactGreetingRecipient,
+  resolveReportingAccountName,
+} from "@/lib/metis/recipient";
 
 const getAccountActivitiesUnsafe = getAccountActivities as (args: {
   accountId: string;
@@ -53,13 +58,31 @@ type LlmCallRecord = {
     | "tone-compose"
     | "tone-compose-regenerate"
     | "voice-judge"
-    | "fact-judge";
+    | "fact-judge"
+    | "voice-judge-regenerate"
+    | "fact-judge-regenerate";
   model: string | null;
   status: "success" | "skipped" | "error";
   errorMessage: string | null;
   usage: OpenRouterUsage | null;
   prompts: OpenRouterPrompts | null;
 };
+
+const DEFAULT_LLM_CALL_TIMEOUT_MS = 45_000;
+const DEFAULT_REPORTING_LLM_DEADLINE_MS = 120_000;
+
+function boundedDuration(value: string | undefined, fallback: number) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed)
+    ? Math.max(10_000, Math.min(180_000, parsed))
+    : fallback;
+}
+
+function usageFromLlmError(error: unknown): OpenRouterUsage | null {
+  if (!error || typeof error !== "object" || !("usage" in error)) return null;
+  const usage = (error as { usage?: unknown }).usage;
+  return usage && typeof usage === "object" ? (usage as OpenRouterUsage) : null;
+}
 
 const postSlackMessageUnsafe = postSlackMessage as (args: {
   text: string;
@@ -144,11 +167,28 @@ export async function runReportingWorkflow(
     dateRange,
     accessToken: input.accessToken ?? null,
   });
+  const accountName = resolveReportingAccountName(rows, input.accountName);
+  const llmDeadlineAt =
+    Date.now() +
+    boundedDuration(
+      process.env.METIS_REPORTING_LLM_DEADLINE_MS,
+      DEFAULT_REPORTING_LLM_DEADLINE_MS,
+    );
+  const nextLlmTimeout = () => {
+    const remainingMs = llmDeadlineAt - Date.now();
+    if (remainingMs <= 0) {
+      throw new Error("Reporting AI deadline exceeded before the next model call.");
+    }
+    return Math.max(1, Math.min(DEFAULT_LLM_CALL_TIMEOUT_MS, remainingMs));
+  };
 
   const llmCalls: LlmCallRecord[] = [];
 
   const promptInput = buildReportPromptInput({ accountId, rows, dateRange });
-  const reportSummaryResult = await generateOpenRouterReportSummary(promptInput);
+  const reportSummaryResult = await generateOpenRouterReportSummary(promptInput, {
+    maxTokens: 900,
+    timeoutMs: nextLlmTimeout(),
+  });
   const { model, report } = reportSummaryResult;
   const reportSummaryUsage =
     (reportSummaryResult.usage as OpenRouterUsage | undefined) ?? null;
@@ -168,7 +208,10 @@ export async function runReportingWorkflow(
 
   let toneProfile: ReportingRunResponse["toneProfile"] = null;
   if (toneExamples) {
-    const toneProfileResult = await buildToneProfile(toneExamples);
+    const toneProfileResult = await buildToneProfile(toneExamples, {
+      maxTokens: 700,
+      timeoutMs: nextLlmTimeout(),
+    });
     toneProfile = toneProfileResult.profile;
     llmCalls.push({
       step: "tone-profile",
@@ -277,45 +320,51 @@ export async function runReportingWorkflow(
     const lines: string[] = [];
     lines.push(`Date range: ${snapshot.dateRange.label}`);
     lines.push(`Row count: ${snapshot.rowCount}`);
-    lines.push(`Executive summary: ${report.executiveSummary}`);
-    const whatChanged: string[] = Array.isArray(report.whatChanged)
-      ? report.whatChanged
-      : [];
-    if (whatChanged.length) {
-      lines.push("What changed:");
-      whatChanged.forEach((item: string) => lines.push(`- ${item}`));
-    }
-    const risks: string[] = Array.isArray(report.risks) ? report.risks : [];
-    if (risks.length) {
-      lines.push("Risks:");
-      risks.forEach((item: string) => lines.push(`- ${item}`));
-    }
-    const nextActions: string[] = Array.isArray(report.nextActions)
-      ? report.nextActions
-      : [];
-    if (nextActions.length) {
-      lines.push("Next actions:");
-      nextActions.forEach((item: string) => lines.push(`- ${item}`));
-    }
+    // Model-written summaries cannot be evidence for another model-written
+    // message. Judges receive only the raw Meta-derived snapshot and edits.
+    lines.push("Meta snapshot:", JSON.stringify(snapshot));
     if (changesSummary) {
       lines.push("");
       lines.push("CHANGES (structured campaign edits during the period):");
       lines.push(changesSummary);
     }
-    if (snapshot.totals) {
-      const t = snapshot.totals;
-      lines.push("");
-      lines.push("Totals:");
-      if (t.spend !== null) lines.push(`- spend: $${t.spend}`);
-      if (t.impressions !== null) lines.push(`- impressions: ${t.impressions}`);
-      if (t.reach !== null) lines.push(`- reach: ${t.reach}`);
-      if (t.clicks !== null) lines.push(`- clicks: ${t.clicks}`);
-      if (t.ctr !== null) lines.push(`- ctr: ${t.ctr}%`);
-      if (t.cpm !== null) lines.push(`- cpm: $${t.cpm}`);
-      if (t.cpc !== null) lines.push(`- cpc: $${t.cpc}`);
-      if (t.frequency !== null) lines.push(`- frequency: ${t.frequency}`);
-    }
     return lines.join("\n");
+  }
+
+  // Without tone examples there is no compose step, so verify the summary
+  // message directly before it can be delivered.
+  if (!toneExamples || !toneProfile) {
+    const sourceFacts = buildSourceFactsBundle();
+    try {
+      const fact = await gradeFactMatch({
+        clientMessage: report.slackMessage,
+        sourceFacts,
+        maxTokens: 320,
+        timeoutMs: nextLlmTimeout(),
+      });
+      factScore = fact.score;
+      factMismatches = fact.mismatches;
+      factCheckBlocked = fact.shouldRegenerate;
+      llmCalls.push({
+        step: "fact-judge",
+        model: fact.model,
+        status: fact.model ? "success" : "skipped",
+        errorMessage: null,
+        usage: fact.usage,
+        prompts: fact.prompts,
+      });
+    } catch (error) {
+      factCheckBlocked = true;
+      llmCalls.push({
+        step: "fact-judge",
+        model: null,
+        status: "error",
+        errorMessage:
+          error instanceof Error ? error.message : "Unknown fact-judge error.",
+        usage: usageFromLlmError(error),
+        prompts: null,
+      });
+    }
   }
 
   if (toneExamples && toneProfile) {
@@ -326,6 +375,9 @@ export async function runReportingWorkflow(
         toneExamples,
         toneProfile,
         changesSummary,
+        recipientName: accountName,
+        maxTokens: 650,
+        timeoutMs: nextLlmTimeout(),
       });
       toneRewriteModel = composed.model;
       toneRewriteUsage = composed.usage;
@@ -340,17 +392,24 @@ export async function runReportingWorkflow(
       let activeMessage = composed.message;
 
       const sourceFacts = buildSourceFactsBundle();
+      const judgeMessage = redactGreetingRecipient(composed.message);
+      const judgeSamples = composed.samples.map(redactGreetingRecipient);
 
-      // Run voice + fact judges in parallel. allSettled so one failure
-      // never blocks the other; never blocks the run.
+      // Run voice + fact judges in parallel. allSettled lets both checks
+      // finish, while either unavailable check still blocks Slack delivery.
+      const initialJudgeTimeoutMs = nextLlmTimeout();
       const [voiceSettled, factSettled] = await Promise.allSettled([
         gradeVoiceMatch({
-          clientMessage: composed.message,
-          samples: composed.samples,
+          clientMessage: judgeMessage,
+          samples: judgeSamples,
+          maxTokens: 280,
+          timeoutMs: initialJudgeTimeoutMs,
         }),
         gradeFactMatch({
-          clientMessage: composed.message,
+          clientMessage: judgeMessage,
           sourceFacts,
+          maxTokens: 320,
+          timeoutMs: initialJudgeTimeoutMs,
         }),
       ]);
 
@@ -373,6 +432,9 @@ export async function runReportingWorkflow(
           prompts: v.prompts,
         });
       } else {
+        toneRewriteBlocked = "Voice verification was unavailable.";
+        activeMessage = report.slackMessage;
+        const errorUsage = usageFromLlmError(voiceSettled.reason);
         llmCalls.push({
           step: "voice-judge",
           model: null,
@@ -381,7 +443,7 @@ export async function runReportingWorkflow(
             voiceSettled.reason instanceof Error
               ? voiceSettled.reason.message
               : "Unknown voice-judge error.",
-          usage: null,
+          usage: errorUsage,
           prompts: null,
         });
       }
@@ -392,6 +454,11 @@ export async function runReportingWorkflow(
         factMismatches = f.mismatches;
         factShouldRegenerate = f.shouldRegenerate;
         combinedCritique.push(...f.mismatches);
+        if (f.shouldRegenerate && !f.mismatches.length) {
+          combinedCritique.push(
+            "The fact check rejected the draft. Remove any claim that is not directly supported by the supplied Meta snapshot.",
+          );
+        }
         llmCalls.push({
           step: "fact-judge",
           model: f.model,
@@ -401,6 +468,9 @@ export async function runReportingWorkflow(
           prompts: f.prompts,
         });
       } else {
+        factCheckBlocked = true;
+        activeMessage = report.slackMessage;
+        const errorUsage = usageFromLlmError(factSettled.reason);
         llmCalls.push({
           step: "fact-judge",
           model: null,
@@ -409,7 +479,7 @@ export async function runReportingWorkflow(
             factSettled.reason instanceof Error
               ? factSettled.reason.message
               : "Unknown fact-judge error.",
-          usage: null,
+          usage: errorUsage,
           prompts: null,
         });
       }
@@ -450,6 +520,9 @@ export async function runReportingWorkflow(
             toneProfile,
             critiqueFeedback: combinedCritique,
             changesSummary,
+            recipientName: accountName,
+            maxTokens: 650,
+            timeoutMs: nextLlmTimeout(),
           });
           activeMessage = revised.message;
           voiceRegenerated = true;
@@ -464,10 +537,8 @@ export async function runReportingWorkflow(
             prompts: revised.prompts,
           });
 
-          // Re-run the deterministic check on the regenerated message.
-          // If a direction flip survives, we refuse to ship the regenerated
-          // message and fall back to the operator-view slackMessage. Voice
-          // mismatch alone does NOT trigger fallback — only fact-violations.
+          // Re-run every safety check on the regenerated message. If any
+          // completed check rejects it, fall back to the operator summary.
           const recheck = checkActivityDirections(
             revised.message,
             canonicalActivities,
@@ -478,6 +549,100 @@ export async function runReportingWorkflow(
             activeMessage = report.slackMessage;
           } else {
             factViolations = [];
+
+            // A rewrite is new model output, so the first draft's scores no
+            // longer prove it is safe to send. Judge the final text again.
+            const revisedJudgeTimeoutMs = nextLlmTimeout();
+            const revisedJudgeMessage = redactGreetingRecipient(revised.message);
+            const [revisedVoiceSettled, revisedFactSettled] =
+              await Promise.allSettled([
+                gradeVoiceMatch({
+                  clientMessage: revisedJudgeMessage,
+                  samples: revised.samples.map(redactGreetingRecipient),
+                  maxTokens: 280,
+                  timeoutMs: revisedJudgeTimeoutMs,
+                }),
+                gradeFactMatch({
+                  clientMessage: revisedJudgeMessage,
+                  sourceFacts,
+                  maxTokens: 320,
+                  timeoutMs: revisedJudgeTimeoutMs,
+                }),
+              ]);
+
+            let revisedVoiceRejected = false;
+            let revisedFactRejected = false;
+
+            if (revisedVoiceSettled.status === "fulfilled") {
+              const v = revisedVoiceSettled.value;
+              voiceScore = v.score;
+              voiceMismatches = v.mismatches;
+              revisedVoiceRejected = v.shouldRegenerate;
+              toneRewriteBlocked = revisedVoiceRejected
+                ? "Regenerated client message did not pass the voice check."
+                : null;
+              llmCalls.push({
+                step: "voice-judge-regenerate",
+                model: v.model,
+                status: v.model ? "success" : "skipped",
+                errorMessage: null,
+                usage: v.usage,
+                prompts: v.prompts,
+              });
+            } else {
+              revisedVoiceRejected = true;
+              toneRewriteBlocked =
+                "Voice verification of the regenerated message was unavailable.";
+              const errorUsage = usageFromLlmError(revisedVoiceSettled.reason);
+              llmCalls.push({
+                step: "voice-judge-regenerate",
+                model: null,
+                status: "error",
+                errorMessage:
+                  revisedVoiceSettled.reason instanceof Error
+                    ? revisedVoiceSettled.reason.message
+                    : "Unknown regenerated voice-judge error.",
+                usage: errorUsage,
+                prompts: null,
+              });
+            }
+
+            if (revisedFactSettled.status === "fulfilled") {
+              const f = revisedFactSettled.value;
+              factScore = f.score;
+              factMismatches = f.mismatches;
+              revisedFactRejected = f.shouldRegenerate;
+              factCheckBlocked = revisedFactRejected;
+              llmCalls.push({
+                step: "fact-judge-regenerate",
+                model: f.model,
+                status: f.model ? "success" : "skipped",
+                errorMessage: null,
+                usage: f.usage,
+                prompts: f.prompts,
+              });
+            } else {
+              factCheckBlocked = true;
+              revisedFactRejected = true;
+              const errorUsage = usageFromLlmError(revisedFactSettled.reason);
+              llmCalls.push({
+                step: "fact-judge-regenerate",
+                model: null,
+                status: "error",
+                errorMessage:
+                  revisedFactSettled.reason instanceof Error
+                    ? revisedFactSettled.reason.message
+                    : "Unknown regenerated fact-judge error.",
+                usage: errorUsage,
+                prompts: null,
+              });
+            }
+
+            // A failed or rejecting final judge blocks the rewritten message.
+            if (revisedFactRejected) factCheckBlocked = true;
+            if (revisedVoiceRejected || revisedFactRejected) {
+              activeMessage = report.slackMessage;
+            }
           }
         } catch (regenError) {
           llmCalls.push({
@@ -488,13 +653,22 @@ export async function runReportingWorkflow(
               regenError instanceof Error
                 ? regenError.message
                 : "Unknown regenerate error.",
-            usage: null,
+            usage: usageFromLlmError(regenError),
             prompts: null,
           });
           // If regen failed and the first draft had fact violations,
           // fall back rather than ship a known-wrong message.
-          if (deterministicCheck.violations.length) {
+          if (voiceShouldRegenerate) {
+            toneRewriteBlocked = "Client-message rewrite failed after a voice rejection.";
+          }
+          if (factShouldRegenerate || deterministicCheck.violations.length) {
             factCheckBlocked = true;
+          }
+          if (
+            voiceShouldRegenerate ||
+            factShouldRegenerate ||
+            deterministicCheck.violations.length
+          ) {
             activeMessage = report.slackMessage;
           }
         }
@@ -504,16 +678,19 @@ export async function runReportingWorkflow(
     } catch (error) {
       toneRewriteBlocked =
         error instanceof Error ? error.message : "Unknown compose error.";
+      factCheckBlocked = true;
       llmCalls.push({
         step: "tone-compose",
         model: null,
         status: "error",
         errorMessage: toneRewriteBlocked,
-        usage: null,
+        usage: usageFromLlmError(error),
         prompts: null,
       });
     }
   }
+
+  finalSlackMessage = ensureRecipientOpening(finalSlackMessage, accountName).message;
 
   const totalPromptTokens = llmCalls.reduce(
     (sum, call) => sum + (call.usage?.promptTokens ?? 0),
@@ -541,10 +718,20 @@ export async function runReportingWorkflow(
     slackMessage: finalSlackMessage,
   };
   const slackWebhookConfigured = Boolean(process.env.SLACK_WEBHOOK_URL?.trim());
+  const slackDeliveryAllowed = Boolean(input.userId);
   let slackDelivery: { status: number; responseText: string } | null = null;
   let slackDeliveryBlocked: string | null = null;
 
-  if (slackWebhookConfigured) {
+  if (slackWebhookConfigured && !slackDeliveryAllowed) {
+    slackDeliveryBlocked =
+      "Slack delivery is disabled for anonymous reporting runs.";
+  } else if (
+    slackWebhookConfigured &&
+    (factCheckBlocked || (Boolean(toneExamples) && Boolean(toneRewriteBlocked)))
+  ) {
+    slackDeliveryBlocked =
+      "Slack delivery was blocked because the final message did not pass quality verification.";
+  } else if (slackWebhookConfigured) {
     try {
       slackDelivery = await postSlackMessageUnsafe({
         text: finalSlackMessage,

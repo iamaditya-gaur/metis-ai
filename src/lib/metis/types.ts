@@ -13,7 +13,7 @@ export type AccountBadge = {
 export const defaultAccountBadges: AccountBadge[] = [
   {
     role: "Reporting Default",
-    label: "CB",
+    label: "Reporting default",
     tone: "sea",
   },
   {
@@ -129,6 +129,7 @@ export type MetaActivitySummary = {
 
 export type ReportingRunRequest = {
   accountId: string;
+  accountName?: string | null;
   dateStart: string;
   dateEnd: string;
   toneExamples: string;
