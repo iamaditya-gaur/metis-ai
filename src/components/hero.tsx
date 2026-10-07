@@ -31,7 +31,12 @@ const metrics = [
   },
 ];
 
-export function Hero() {
+type HeroProps = {
+  /** Accounts paused: the CTA opens the invite-only tool instead of sign-up. */
+  paused?: boolean;
+};
+
+export function Hero({ paused = false }: HeroProps) {
   return (
     <section className="section section-block">
       <div className="hero-grid hero-grid--single">
@@ -52,12 +57,20 @@ export function Hero() {
           </div>
 
           <div className="hero-cta-row fx-load fx-d4">
-            <Link href="/signup" className="hero-cta hero-cta--primary">
-              Get started — it&apos;s free
-            </Link>
-            <Link href="/login" className="hero-cta hero-cta--ghost">
-              Sign in
-            </Link>
+            {paused ? (
+              <Link href="/reporting" className="hero-cta hero-cta--primary">
+                Open Metis
+              </Link>
+            ) : (
+              <>
+                <Link href="/signup" className="hero-cta hero-cta--primary">
+                  Get started — it&apos;s free
+                </Link>
+                <Link href="/login" className="hero-cta hero-cta--ghost">
+                  Sign in
+                </Link>
+              </>
+            )}
           </div>
 
           <div className="trust-strip fx-load fx-d5">

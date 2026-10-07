@@ -13,7 +13,12 @@ type AccountsResponse = {
   message?: string;
 };
 
-export function StandaloneReportingFlow() {
+type StandaloneReportingFlowProps = {
+  /** Database is offline: no sign-up nudge, and say plainly that nothing is saved. */
+  accountsPaused?: boolean;
+};
+
+export function StandaloneReportingFlow({ accountsPaused = false }: StandaloneReportingFlowProps) {
   const [draftToken, setDraftToken] = useState("");
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
@@ -134,6 +139,15 @@ export function StandaloneReportingFlow() {
                   generated summaries, Slack message text, or visible output panels.
                 </p>
               </div>
+              {accountsPaused ? (
+                <div className="reporting-session-card">
+                  <span className="product-label">Nothing is saved</span>
+                  <p className="product-help">
+                    Your token and reports live only in this tab. Copy any report you want to keep
+                    before you close or refresh the page.
+                  </p>
+                </div>
+              ) : null}
             </div>
           </GlassPanel>
 
@@ -142,6 +156,7 @@ export function StandaloneReportingFlow() {
             accounts={accounts}
             accessToken={sessionToken}
             mode="standalone"
+            showSignUpNudge={!accountsPaused}
           />
         </div>
       </main>
@@ -222,12 +237,17 @@ export function StandaloneReportingFlow() {
                 <label className="product-label" htmlFor="reporting-access-token">
                   Meta access token
                 </label>
-                <textarea
+                {/* Masked input: keeps the token off-screen (screen shares, shoulder
+                    surfing) and out of browser spellcheck/autofill services. */}
+                <input
                   id="reporting-access-token"
-                  className="product-textarea reporting-token-input"
+                  type="password"
+                  className="product-input reporting-token-input--masked"
                   value={draftToken}
                   onChange={(event) => setDraftToken(event.target.value)}
                   placeholder="EAAB..."
+                  autoComplete="off"
+                  autoCapitalize="off"
                   spellCheck={false}
                 />
                 <p className="product-help">

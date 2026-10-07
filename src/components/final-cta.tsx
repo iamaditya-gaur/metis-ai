@@ -2,7 +2,12 @@ import Link from "next/link";
 
 import { Reveal } from "@/components/reveal";
 
-export function FinalCta() {
+type FinalCtaProps = {
+  /** Accounts paused: the CTA opens the invite-only tool instead of sign-up. */
+  paused?: boolean;
+};
+
+export function FinalCta({ paused = false }: FinalCtaProps) {
   return (
     <section className="section section-block pb-10">
       <Reveal className="cta-panel cta-panel--final">
@@ -18,17 +23,26 @@ export function FinalCta() {
         </div>
 
         <div className="cta-actions">
-          <Link href="/signup" className="hero-cta hero-cta--primary">
-            Get started — it&apos;s free
-          </Link>
-          <Link href="/login" className="hero-cta hero-cta--ghost">
-            I already have an account
-          </Link>
+          {paused ? (
+            <Link href="/reporting" className="hero-cta hero-cta--primary">
+              Open Metis
+            </Link>
+          ) : (
+            <>
+              <Link href="/signup" className="hero-cta hero-cta--primary">
+                Get started — it&apos;s free
+              </Link>
+              <Link href="/login" className="hero-cta hero-cta--ghost">
+                I already have an account
+              </Link>
+            </>
+          )}
         </div>
 
         <p className="footer-note">
-          No card required. You can connect a Meta account whenever you&apos;re
-          ready.
+          {paused
+            ? "Invite-only right now — you'll need an access code."
+            : "No card required. You can connect a Meta account whenever you're ready."}
         </p>
       </Reveal>
     </section>

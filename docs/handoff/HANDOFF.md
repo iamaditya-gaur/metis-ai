@@ -1,6 +1,6 @@
 # Metis AI — current agent handoff
 
-**Last updated:** 2026-07-18 (BYOK / bring-your-own-AI-key — built on branch `claude/byok-llm-keys-4407f4`, verified on preview, pending merge)
+**Last updated:** 2026-10-07 (cold storage: paused mode + access code — see first section)
 
 > Read this file once. Don't pre-load the other docs — they're listed in the "If you need to dig deeper" table at the bottom; open them only when the task at hand actually calls for it.
 
@@ -10,6 +10,15 @@
 - **Production URL:** https://metis-ai-nine.vercel.app — live on the latest build.
 - **Repo + project:** GitHub `iamaditya-gaur/metis-ai`, single Vercel project, single linked Supabase project.
 - **Auth gate:** `/app/*` requires a Supabase session. `/admin/*` requires the admin password cookie. `/`, `/reporting`, `/login`, `/signup`, `/reset-password` are public.
+
+## Cold storage — paused mode + access code (2026-10-07, branch `claude/metis-pause-access-code`)
+
+- **Why:** Supabase free plan allows 2 active projects; Metis is parked. The Supabase project (`rzomdapylhcsphwbfecp`) is paused — it had already auto-paused for inactivity before this work. Backup lives outside git at `~/Backups/metis-supabase-<date>/` (README inside has restore steps). Do not migrate auth elsewhere — RLS depends on Supabase user IDs.
+- **`METIS_PAUSED=true`** (Vercel env): middleware redirects `/app`, `/admin`, `/login`, `/signup`, `/reset-password`, `/auth/*` → `/reporting`; `/api/llm-keys/*` → 503. Landing CTAs point at `/reporting`; the sign-up nudge is hidden; no Supabase calls on public paths. Run logging to `metis_runs` still attempts and fails silently (never breaks a run).
+- **`METIS_ACCESS_CODE`** (Vercel env, server-only, ≥16 chars or the tool stays locked): `/reporting` shows a code screen until the browser holds the httpOnly `metis_access` cookie (14 days, HMAC keyed from the code — rotating the code signs everyone out). Middleware returns 401 on every `/api/metis/*` call without it (signed-in Supabase users also pass when not paused). Code is checked in `/api/access` (constant-time, same-origin only, 5 misses → 15-min lockout per instance). Logic: `src/lib/auth/access-gate.ts`, tests in `tests/access-gate.test.ts`.
+- **Why the gate matters:** anonymous runs spend the operator's `OPENROUTER_API_KEY`. Before this, `/reporting` and the legacy `/api/metis/builder/*` routes were open to anyone.
+- **Meta tokens:** pasted per session into a masked field, kept only in React state, sent in POST bodies, never stored or logged. Reports are not saved while paused — users copy them out.
+- **Resume accounts:** Supabase dashboard → Resume project (within 90 days of the pause), then remove `METIS_PAUSED` in Vercel and redeploy. After 90 days: restore the backup into a new project, update `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` in Vercel.
 
 ## BYOK — bring your own AI key (2026-07-18, branch `claude/byok-llm-keys-4407f4`, not yet merged)
 

@@ -5,6 +5,7 @@ import type { ReportingRunRequest } from "@/lib/metis/types";
 import { createClient } from "@/lib/supabase/server";
 import { decryptSecretFromBase64 } from "@/lib/crypto/token-encryption";
 import { resolveLlmKeyForRun } from "@/lib/llm-keys/store";
+import { isMetisPaused } from "@/lib/site-mode";
 import { runWithLlmKey } from "../../../../../scripts/pocs/lib/llm-context.mjs";
 
 type Body = ReportingRunRequest & { connectionId?: string };
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-  } else {
+  } else if (!isMetisPaused()) {
     // Even on the public demo path, attribute the run to the user if they
     // happen to be signed in (e.g. when /reporting is visited by a logged-in
     // user). Costs one extra Supabase call; nothing breaks if they aren't.

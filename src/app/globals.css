@@ -1806,6 +1806,16 @@ input {
   line-height: 1.5;
 }
 
+.reporting-token-input--masked {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.82rem;
+}
+
+.access-gate-shell {
+  width: min(100%, 560px);
+  padding-top: 8vh;
+}
+
 .reporting-guide-button {
   width: fit-content;
   border-color: rgb(51 92 219 / 0.32);
