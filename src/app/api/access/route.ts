@@ -56,6 +56,26 @@ function recordFailure(key: string, now: number) {
   }
 }
 
+/**
+ * Rejects forms posted from other sites. Browsers send `Sec-Fetch-Site`;
+ * `Origin` can be the literal string "null" (privacy settings, no-referrer
+ * pages), so it's only a fallback and must never be parsed blindly.
+ */
+function isSameSitePost(request: Request): boolean {
+  const fetchSite = request.headers.get("sec-fetch-site");
+  if (fetchSite) return fetchSite === "same-origin";
+
+  const origin = request.headers.get("origin");
+  if (!origin || origin === "null") return true;
+
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
+}
+
 function backToTool(request: Request, access?: string) {
   const url = new URL("/reporting", request.url);
   if (access) url.searchParams.set("access", access);
@@ -64,10 +84,7 @@ function backToTool(request: Request, access?: string) {
 }
 
 export async function POST(request: Request) {
-  // Only accept the form from this site's own pages.
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
-  if (origin && (!host || new URL(origin).host !== host)) {
+  if (!isSameSitePost(request)) {
     return NextResponse.json({ message: "Forbidden." }, { status: 403 });
   }
 
