@@ -128,3 +128,5 @@ Reach me through [my GitHub profile](https://github.com/iamaditya-gaur).
 ---
 
 *Originally built as a submission to the GrowthX AI Buildathon (MaaS track). Full rubric posture lives in [`docs/maas-context.md`](docs/maas-context.md).*
+
+> **Status (October 2026):** Metis is parked. The live app runs as an invite-only reporting tool with no storage: no accounts, no saved history, and nothing kept after you close the tab. Generated reports appear on screen only, so copy what you need.

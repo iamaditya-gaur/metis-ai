@@ -25,6 +25,8 @@ type ReportingStudioProps = {
    */
   connectionId?: string;
   mode?: "workspace" | "standalone" | "authed";
+  /** Standalone only: off while accounts are paused (nowhere to sign up). */
+  showSignUpNudge?: boolean;
 };
 
 type UploadedToneFile = {
@@ -217,6 +219,7 @@ export function ReportingStudio({
   accessToken,
   connectionId,
   mode = "workspace",
+  showSignUpNudge = true,
 }: ReportingStudioProps) {
   const toneFileInputRef = useRef<HTMLInputElement | null>(null);
   const copyResetTimeoutRef = useRef<number | null>(null);
@@ -960,7 +963,7 @@ export function ReportingStudio({
         )}
       </div>
 
-      {isStandalone && result ? <SignUpNudge /> : null}
+      {isStandalone && showSignUpNudge && result ? <SignUpNudge /> : null}
     </div>
   );
 }

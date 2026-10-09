@@ -2,9 +2,11 @@ import Link from "next/link";
 
 type LandingNavProps = {
   user: { email: string | null } | null;
+  /** Accounts paused: one button straight to the no-login tool. */
+  paused?: boolean;
 };
 
-export function LandingNav({ user }: LandingNavProps) {
+export function LandingNav({ user, paused = false }: LandingNavProps) {
   return (
     <header className="landing-nav fx-load--drop">
       <Link href="/" className="landing-nav-brand" aria-label="Metis AI home">
@@ -15,7 +17,14 @@ export function LandingNav({ user }: LandingNavProps) {
       </Link>
 
       <nav className="landing-nav-actions" aria-label="Account">
-        {user ? (
+        {paused ? (
+          <Link
+            href="/reporting"
+            className="landing-nav-cta landing-nav-cta--primary"
+          >
+            Open Metis
+          </Link>
+        ) : user ? (
           <Link
             href="/app/reports"
             className="landing-nav-cta landing-nav-cta--primary"
